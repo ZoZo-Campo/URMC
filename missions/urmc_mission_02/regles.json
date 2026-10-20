@@ -1,0 +1,18 @@
+{
+  "mission_presentation": 2,
+  "numero_bareme": 1,
+  "article": "4.1.2",
+  "pages_reglement": "4",
+  "regles": [
+    "Suivre la piste, détecter la barrière fermant le passage et s’arrêter devant elle.",
+    "Attendre son ouverture puis reprendre le suivi de piste.",
+    "Le schéma montre une barrière rouge/blanche ; le texte ne fixe pas les dimensions ni la hauteur."
+  ],
+  "bareme": "3 points : détection et arrêt ; 2 points : reprise après ouverture. −1 si la barrière est heurtée.",
+  "questions": [
+    "Hauteur, dimensions, mouvement et distance d’arrêt attendue.",
+    "La barrière coupe-t-elle le plan du LiDAR ? À mesurer, pas à supposer.",
+    "Signal de fin de la mission après reprise."
+  ],
+  "statut": "prototype_local_non_valide_robot"
+}

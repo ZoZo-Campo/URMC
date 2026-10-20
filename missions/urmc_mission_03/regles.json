@@ -1,0 +1,18 @@
+{
+  "mission_presentation": 3,
+  "numero_bareme": 2,
+  "article": "4.1.3",
+  "pages_reglement": "4",
+  "regles": [
+    "À l’arrivée simultanée de deux robots, appliquer la priorité à droite.",
+    "Dans la figure 3, le robot 2 situé à droite du robot 1 est prioritaire.",
+    "Le barème pénalise une mauvaise direction sans détailler complètement comment la direction est imposée."
+  ],
+  "bareme": "3 points : arrêt après détection du robot à droite ; 2 points : suivi avec priorité. −1 si pas de détection, −2 en cas de mauvaise direction.",
+  "questions": [
+    "Direction à prendre et rôle du panneau de flèche droite.",
+    "Définition d’une arrivée simultanée, distance d’attente, reprise après passage.",
+    "Procédure en cas de plusieurs robots bloqués ou de priorité réciproque."
+  ],
+  "statut": "prototype_local_non_valide_robot"
+}

@@ -1,0 +1,10 @@
+/**:
+  ros__parameters:
+    speed: 0.07
+    kp: 0.8
+    timeout: 0.30
+    white_s: 60
+    white_v: 180
+    yellow_low: 18
+    yellow_high: 38
+    storage_calibrated: false
