@@ -1,5 +1,5 @@
 import pytest
-from tests.evaluate_lidar import run
+from tools.evaluate_lidar import run
 
 @pytest.mark.parametrize('offset,obstacle',[(0.,False),(.04,False),(-.04,False),(0.,True)])
 def test_enclosure_variants(offset,obstacle):

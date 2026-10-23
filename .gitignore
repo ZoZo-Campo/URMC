@@ -11,3 +11,10 @@ __pycache__/
 .env
 *.pem
 *.key
+
+resultats/
+livraison/
+session_robot11/
+archives/
+*.log
+*.jsonl

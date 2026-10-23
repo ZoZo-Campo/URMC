@@ -1,66 +1,48 @@
-# Simulation et essais réels
+# Utilisation
 
-## Simulation
+## Caméra et essais depuis le Mac
 
-Depuis le dépôt compilé :
-
-```bash
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-export ROS_DOMAIN_ID=99
-export ROS_LOCALHOST_ONLY=1
-ros2 launch urmc_mission_01 sim.launch.py dashboard:=true
-```
-
-Ouvrir http://127.0.0.1:8765 puis cliquer sur Démarrer. Remplacer `01` par `02` à `05` pour changer de mission ; une seule interface par port. Dans un conteneur, publier le port 8765 uniquement sur le localhost du poste. Pause et Recommencer contrôlent la session. Les perturbations sont disponibles dans la page. Ctrl+C ferme les processus de cette commande.
-
-## Robot : contrôleur principal
-
-Démarrer les pilotes de la base et de la caméra selon le TP. Ne pas lancer une deuxième instance si les pilotes tournent déjà. Charger ROS et le workspace dans chaque terminal, puis utiliser le même domaine que les pilotes. Selon le TP : domaine = 30 + numéro du robot.
-
-Topics attendus : `/image_raw/compressed`, `/scan`, `/odom` ; sortie `/cmd_vel` de type `geometry_msgs/msg/Twist`. Le contrôleur exige des capteurs frais et des secteurs LiDAR suffisamment couverts. Les zéros LiDAR ne sont pas considérés comme de l’espace libre.
+Dans le dossier du dépôt :
 
 ```bash
-ros2 launch urmc_mission_01 robot.launch.py speed:=0.04
+python3 tools/mac_robot.py video
 ```
 
-Le contrôleur est initialement désarmé. Une fois la zone et les capteurs vérifiés, le service `/urmc/m01/enable` (`std_srvs/srv/SetBool`) permet l’armement ou le désarmement. Ne pas utiliser plusieurs contrôleurs de vitesse simultanément. Vérifier l’arrêt physique et le timeout de la base.
+Ouvrir **http://127.0.0.1:8080/**. Garder cette page ouverte pendant toutes les missions. Les images viennent de `/image_raw/compressed` ; le serveur reste sur le localhost du robot, accessible par tunnel SSH. La page affiche la mission, la raison des pauses, l’âge source côté serveur et le temps de transfert. Une caméra périmée ou un réseau interrompu ne sont pas présentés comme du direct.
 
-## Mission 1 : prototype caméra seule
-
-Fichiers : `missions/urmc_mission_01/essais_robot/`.
-
-- `essai_suivi_camera.py` : 5 s, maximum 0,03 m/s.
-- `suivi_piste_camera.py` : maximum 0,05 m/s, rampe d’accélération, ralentissement avec l’erreur, arrêt au damier ou après 90 s.
-
-**Ces scripts commencent à commander les moteurs lorsque les images deviennent valides.** Ils n’utilisent pas le service d’armement du contrôleur principal. Ils sont réservés aux essais surveillés, sur piste libre ; aucune détection ou manœuvre d’évitement d’obstacle n’est fournie par ce mode.
-
-Après avoir préparé le robot, sur demande de l’opérateur :
+Puis lancer un seul essai :
 
 ```bash
-python3 missions/urmc_mission_01/essais_robot/suivi_piste_camera.py
+python3 tools/mac_robot.py follow       # suivi seul, maximum 90 s
+python3 tools/mac_robot.py barrier      # observation barrière, aucun moteur
+python3 tools/mac_robot.py barrier-run  # suivi + barrière, sans durée maximale
 ```
 
-Arrêt depuis un autre terminal configuré dans le même domaine :
+Les commandes de roulage démarrent les moteurs lorsque leurs conditions sont remplies. Arrêt : bouton STOP de la vidéo, Ctrl+C dans le terminal de la mission, ou `python3 tools/mac_robot.py stop`. La vidéo reste active.
+
+Suivi : deux bordures jaune/blanche obligatoires, sans côté de couleur imposé. Barycentres jaune/blanc, centre vert et axe cyan. Barrière : panneau bleu horizontal fermé, vertical levé, confirmation stable avant reprise. Un début d’ouverture observé suivi d’une disparition stable peut aussi confirmer la levée dans ce prototype ; une perte de caméra ne compte jamais comme une disparition du panneau. Cette hypothèse doit être vérifiée avec le montage réel.
+
+La barrière fermée, un panneau ambigu, une piste manquante ou des capteurs périmés provoquent une vitesse nulle. Après une erreur de piste, la reprise exige trois images distinctes valides. Les scripts ne font pas d’évitement LiDAR. Le bouton STOP n’est pas un arrêt matériel en cas de crash ; le timeout de la base doit rester configuré.
+
+## Lancement directement sur le robot
 
 ```bash
-ros2 service call /urmc/camera_follow/stop std_srvs/srv/Trigger '{}'
+python3 ~/urmc_essais_20261020/kit_robot/suivi_piste_camera.py
+python3 ~/urmc_essais_20261020/kit_robot/mission_barriere.py --run
 ```
 
-Perte de caméra : arrêt ; perte visuelle momentanée : vitesse nulle, avec arrêt après 0,6 s et reprise sur trois images valides si la perte est courte. Une interruption du processus commande zéro dans la sortie normale ; cela ne remplace pas un timeout matériel en cas de crash.
+Choisir une seule de ces commandes. Pour un essai barrière borné : ajouter `--seconds 30`. Sans cette option, il n’y a pas de limite de durée. La commande Mac `video` prépare le tunnel nécessaire pour regarder la page.
 
-## Vidéo continue
-
-Sur le robot, dans le domaine ROS de la caméra :
+## Simulation sur Mac
 
 ```bash
-python3 outils/retour_video.py --topic /image_raw/compressed
+bash tools/mac.sh 01
 ```
 
-Depuis le poste opérateur, remplacer `ADRESSE_DU_ROBOT` :
+Remplacer `01` par `02`, `03`, `04` ou `05`. Interface : http://127.0.0.1:8765/. Cliquer Démarrer ; Pause et Recommencer contrôlent la session. Ctrl+C termine cette simulation. Pour ouvrir les cinq : `python3 tools/visuals.py start` ; arrêt : `python3 tools/visuals.py stop`. Dans ce mode les ports vont de 8765 à 8769.
 
-```bash
-ssh -N -L 8080:127.0.0.1:8080 ubuntu@ADRESSE_DU_ROBOT
-```
+## Contrôleurs standard ROS
 
-Ouvrir http://127.0.0.1:8080. Le flux MJPEG est continu ; le compteur affiche les images reçues par le serveur. Cette page ne commande pas les moteurs. Pour une caméra brute, utiliser `--raw --topic /image_raw`.
+Après compilation, `ros2 launch urmc_mission_01 sim.launch.py dashboard:=true` lance la simulation. Sur robot : `ros2 launch urmc_mission_01 robot.launch.py speed:=0.04`, avec les pilotes déjà prêts, le même domaine ROS et tous les capteurs requis. Les contrôleurs standard restent désarmés au démarrage ; service `/urmc/m01/enable` (`std_srvs/srv/SetBool`) pour l’armement/désarmement. Remplacer `01` selon la mission.
+
+Le script `kit_robot/lancer.sh` permet les modes observation/roulage pour 01–04, avec le profil matériel renseigné. La mission 05 réelle reste bloquée faute d’intégration matérielle. Les essais caméra du menu et les contrôleurs standard sont deux chemins distincts ; ne pas les exécuter simultanément.

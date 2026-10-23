@@ -1,0 +1,46 @@
+ROBOT 11 — COMMANDES A COPIER SUR LE MAC
+
+1. Allumer le robot. Connecter le Mac au même réseau.
+
+2. Ouvrir un Terminal et copier :
+cd ~/URMC
+python3 tools/mac_robot.py video
+
+3. Ouvrir cette page et la garder ouverte :
+http://127.0.0.1:8080/
+C’est la vidéo pour toutes les missions, avec le bouton STOP.
+
+4. LANCER SUIVI DE LIGNE + BARRIERE :
+python3 tools/mac_robot.py barrier-run
+
+Le robot suit la piste avec les DEUX bordures jaune et blanche visibles.
+Le côté des couleurs peut être inversé.
+Il s’arrête devant la barrière bleue fermée, puis reprend après ouverture confirmée.
+Il continue le suivi après la barrière.
+Vitesse maximale : 5 cm/s. Aucune limite de durée.
+Si une détection est mauvaise, il fait une pause et reprend quand elle est confirmée.
+La raison de la pause apparaît au-dessus de la vidéo.
+Fin au damier, au bouton STOP ou avec Ctrl+C dans le Terminal.
+
+5. POUR ARRETER :
+Cliquer STOP sur la page vidéo.
+Ou appuyer sur Ctrl+C dans le Terminal de la mission.
+
+Si besoin, dans un autre Terminal Mac :
+cd ~/URMC
+python3 tools/mac_robot.py stop
+
+6. POUR REFAIRE UN ESSAI :
+Replacer le robot, puis relancer :
+python3 tools/mac_robot.py barrier-run
+Ne pas lancer une seconde mission tant que la précédente tourne.
+
+SUIVI DE LIGNE SEUL, SANS GESTION DE BARRIERE :
+python3 tools/mac_robot.py follow
+Ce mode distinct garde sa limite de 90 secondes.
+
+SI TU ES DEJA EN SSH SUR LE ROBOT :
+python3 ~/urmc_essais_20261020/kit_robot/mission_barriere.py --run
+Pour la vidéo sur le Mac, faire d’abord les étapes 2 et 3 ci-dessus.
+
+Aucune compilation à refaire : la version corrigée est déjà installée.
