@@ -5,8 +5,8 @@
 Ouvrir `OUVRIR URMC.command`, sélectionner le robot puis **Connecter / préparer**. Le lancement et la connexion ne commandent aucun mouvement. La console reste sur `http://127.0.0.1:8090/`.
 
 - **Piloter** : vidéo, LiDAR, maintien des flèches pour le manuel et raison de l’état courant.
-- **Missions** : suivi, barrière et priorité à droite.
-- **Enceinte / SLAM** : création/sauvegarde des cartes, localisation et mission 4.
+- **Missions** : cartes 01 à 04, avec accès au panneau Enceinte / SLAM et raccourci d’entraînement sur le Mac ; mission 5 indiquée en simulation.
+- **Enceinte / SLAM** : préparation guidée en trois étapes, progression visible et prochaine action indiquée : carte, parcours, puis position/départ. Les commandes de départ restent désactivées si la carte, les repères, la position ou les capteurs ne sont pas prêts.
 - **Simulations** : cinq bancs ROS synthétiques ; le banc SLAM dédié est dans Enceinte / SLAM.
 - **Réglages** : perception, vitesse, seuils de priorité et gabarit/marge de l’enceinte.
 - **Mode d’emploi** : accès aux documents de référence et étapes de connexion.

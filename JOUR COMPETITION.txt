@@ -73,14 +73,14 @@ Une fois, dans le Terminal SSH du robot :
 bash ~/urmc_essais_20261020/kit_robot/installer_mission4.sh
 Puis Connecter / préparer dans la console.
 
-1. Ouvrir Enceinte / SLAM → Nouveau SLAM.
-2. Activer le manuel, parcourir l’entrée, l’intérieur et la sortie ; STOP.
+1. Missions → 04 → Préparer la mission 4 → Créer une nouvelle carte.
+2. Prendre les commandes, parcourir l’entrée, l’intérieur et la sortie ; STOP.
 3. Sur la carte : dessiner la zone autorisée, puis placer entrée / intérieur / sortie.
    Inclure le parcours, exclure un détour autour des parois par l’extérieur.
-4. Donner un nom → Enregistrer carte + graphe SLAM. Télécharger le ZIP pour le Mac.
+4. Donner un nom → Enregistrer ma carte et mon parcours. Télécharger le ZIP pour le Mac.
 5. Placer le robot avant l’entrée → choisir la carte → Charger.
 6. Définir sa position sur la carte et tirer vers son avant ; attendre 2 s.
-7. Vérifier les scans et cliquer « La position affichée est correcte ».
+7. Vérifier les scans et cliquer « Oui, le robot est bien placé ».
 8. Lancer mission 4 avec moteurs. STOP termine l’essai.
 
 Les obstacles ajoutés après cartographie sont pris en compte par les scans actuels.
@@ -88,8 +88,8 @@ Le chrono de 60 s démarre au repère d’entrée. Aucun passage sûr : arrêt.
 La navigation n’utilise jamais la caméra ; retour opérateur optionnel hors épreuve.
 
 Pour essayer sur le Mac : préparer une fois Code/tools/preparer_slam_mac.command,
-puis Enceinte / SLAM → Banc SLAM sur le Mac → Démarrer le banc Mac.
-Même procédure ; « Ajouter les obstacles du banc » teste l’imprévu.
+puis Missions → 04 → Essayer sur le Mac → Démarrer mon entraînement.
+Même procédure ; « Ajouter un obstacle à l’entraînement » teste l’imprévu.
 Cartes du robot : ~/urmc_essais_20261020/cartes/ ; sauvegarde Mac via ZIP.
 Guide détaillé : Missions/04_enceinte_slam/README.md.
 

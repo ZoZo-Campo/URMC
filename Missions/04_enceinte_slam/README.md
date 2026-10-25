@@ -1,6 +1,6 @@
 # Mission 4 — Enceinte, SLAM et obstacles
 
-Dans la console du Mac, ouvrir **Enceinte / SLAM**. Le nouveau pilote est un vrai nœud ROS 2 qui commande `/cmd_vel` après un lancement explicite. Il utilise exclusivement le LiDAR, l’odométrie et TF. La caméra du panneau est un retour opérateur optionnel, désactivé par défaut ; le règlement interdit son usage dans cette épreuve.
+Dans la console du Mac, ouvrir **Missions → 04 → Préparer la mission 4**. Le panneau guide la préparation en trois étapes : **Créer la carte → Dessiner le trajet → Se placer et partir**. Le bouton **Essayer sur le Mac** ouvre directement le mode entraînement, sans commander un robot réel. Le nouveau pilote est un vrai nœud ROS 2 qui commande `/cmd_vel` après un lancement explicite. Il utilise exclusivement le LiDAR, l’odométrie et TF. La caméra du panneau est un retour opérateur optionnel, désactivé par défaut ; le règlement interdit son usage dans cette épreuve.
 
 ## Une seule fois : préparer
 
@@ -17,20 +17,20 @@ Sur le Mac, pour le banc SLAM complet : double-cliquer `Code/tools/preparer_slam
 ## 1. Construire la carte avant les essais
 
 1. Choisir le robot 9 ou 11 et cliquer **Connecter / préparer**.
-2. Ouvrir **Enceinte / SLAM**, source **Robot sélectionné**.
-3. Cliquer **Nouveau SLAM / refaire la carte**. Une nouvelle session est créée ; les versions enregistrées ne sont pas écrasées.
-4. Activer le manuel, maintenir les flèches et parcourir l’entrée, l’intérieur et la sortie. Relâcher arrête les moteurs. Passer suffisamment près des zones à utiliser pour qu’elles soient connues en blanc sur la carte. Une zone inconnue reste interdite au planificateur.
-5. Arrêter. Choisir **Zone autorisée**, cliquer et tirer un rectangle sur la carte. Il doit inclure l’enceinte et les repères extérieurs, mais interdire un détour qui contournerait les parois par l’extérieur. Cette limite fait partie de la préparation du parcours.
+2. Ouvrir **Enceinte / SLAM**, source **Sur le robot réel**.
+3. Cliquer **Créer une nouvelle carte**. Une nouvelle session est créée ; les versions enregistrées ne sont pas écrasées.
+4. Cliquer **Prendre les commandes**, puis maintenir les flèches et parcourir l’entrée, l’intérieur et la sortie. Relâcher arrête les moteurs. Passer suffisamment près des zones à utiliser pour qu’elles soient connues en blanc sur la carte. Une zone inconnue reste interdite au planificateur.
+5. Arrêter. Choisir **Dessiner la zone**, cliquer et tirer un rectangle sur la carte. Il doit inclure l’enceinte et les repères extérieurs, mais interdire un détour qui contournerait les parois par l’extérieur. Cette limite fait partie de la préparation du parcours.
 6. Choisir successivement les trois actions au clic : **entrée** juste avant la première ouverture, **intérieur** dans l’enceinte, **sortie** au-delà de la seconde ouverture. Le robot suit ensuite ces repères sans commande manuelle. Éviter de placer un repère contre un mur.
-7. Donner un nom simple et cliquer **Enregistrer carte + graphe SLAM**. La sauvegarde porte un horodatage et conserve grille, image PNG, PGM/YAML, graphe `.posegraph`/`.data`, zone et repères.
-8. **Télécharger la carte (ZIP)** copie cette version sur le Mac via le navigateur. Sur le robot, les cartes sont sous `~/urmc_essais_20261020/cartes/`. Elles ne sont pas supprimées par Connecter / préparer.
+7. Donner un nom simple et cliquer **Enregistrer ma carte et mon parcours**. La sauvegarde porte un horodatage et conserve grille, image PNG, PGM/YAML, graphe `.posegraph`/`.data`, zone et repères.
+8. **Télécharger ma carte (ZIP)** copie cette version sur le Mac via le navigateur. Sur le robot, les cartes sont sous `~/urmc_essais_20261020/cartes/`. Elles ne sont pas supprimées par Connecter / préparer.
 
 ## 2. Lancer un essai avec obstacles non cartographiés
 
-1. Placer le robot avant l’entrée ; choisir la carte enregistrée puis **Charger cette carte**. Le système passe en localisation SLAM sur le graphe enregistré.
-2. Action au clic **Position actuelle du robot** : cliquer à sa position et tirer vers son avant, ou utiliser l’angle en degrés. Vérifier que les points LiDAR orange coïncident avec les parois connues.
-3. Attendre deux secondes puis cliquer **La position affichée est correcte**. Cette confirmation est nécessaire à chaque rechargement/relocalisation. Une transformation TF récente ne prouve pas à elle seule que la localisation absolue est correcte.
-4. Vérifier zone et repères puis **Lancer mission 4 avec moteurs**. Le mode manuel précédent est arrêté, son autorisation est révoquée, puis le pilote de l’enceinte prend seul les moteurs.
+1. Placer le robot avant l’entrée ; ouvrir **J’ai déjà une carte enregistrée**, choisir la version puis **Utiliser cette carte**. Le système passe en localisation SLAM sur le graphe enregistré.
+2. Cliquer **Indiquer la position du robot** : cliquer à sa position et tirer vers son avant, ou utiliser l’angle en degrés. Vérifier que les points LiDAR orange coïncident avec les parois connues.
+3. Attendre deux secondes puis cliquer **Oui, le robot est bien placé**. Cette confirmation est nécessaire à chaque rechargement/relocalisation. Une transformation TF récente ne prouve pas à elle seule que la localisation absolue est correcte.
+4. Vérifier zone et repères puis **Lancer la mission 4 avec moteurs**. Le mode manuel précédent est arrêté, son autorisation est révoquée, puis le pilote de l’enceinte prend seul les moteurs.
 5. Surveiller la carte et la décision. **STOP ENCEINTE**, le STOP rouge ou STOP TOUS arrêtent l’essai. Le SLAM reste disponible pour observer ou préparer le suivant.
 
 La mission vise d’abord l’entrée, puis le point intérieur, puis la sortie. Le chronomètre de 60 s démarre à l’atteinte du repère d’entrée, donc de façon conservatrice avant le franchissement complet. La sortie est validée par l’atteinte du repère extérieur choisi ; c’est pourquoi sa calibration et la zone autorisée comptent.
@@ -52,9 +52,9 @@ Les cartes sont séparées physiquement sur chaque robot et identifiées par leu
 
 ## Banc SLAM du Mac
 
-Dans **Enceinte / SLAM**, choisir **Banc SLAM sur le Mac** puis **Démarrer le banc Mac**. Suivre le même parcours création → manuel → zone/repères → sauvegarde → chargement → pose/confirmation → mission. La case **Ajouter les obstacles du banc** introduit un obstacle après cartographie. Le banc utilise des topics `/urmc_sim/m04_slam/*`, des TF séparés, le domaine 99 et aucun réseau hôte Docker. Il ne commande aucun robot réel.
+Dans **Enceinte / SLAM**, choisir **En entraînement sur le Mac** puis **Démarrer mon entraînement**. Suivre le même parcours création → manuel → zone/repères → sauvegarde → chargement → pose/confirmation → mission. La case **Ajouter un obstacle à l’entraînement** introduit un obstacle après cartographie. Le banc utilise des topics `/urmc_sim/m04_slam/*`, des TF séparés, le domaine 99 et aucun réseau hôte Docker. Il ne commande aucun robot réel.
 
-Les cartes du banc persistent dans le volume Docker `urmc-cartes-simulation`. Utiliser le ZIP pour une copie indépendante sur le Mac. **Fermer le banc** arrête ses processus et conserve ce volume. L’ancienne simulation de mission 4 reste accessible dans l’onglet Simulations ; elle teste le pilote réactif historique, pas ce nouveau workflow SLAM.
+Les cartes du banc persistent dans le volume Docker `urmc-cartes-simulation`. Utiliser le ZIP pour une copie indépendante sur le Mac. **Fermer le banc Mac** arrête ses processus et conserve ce volume. L’ancienne simulation de mission 4 reste accessible dans l’onglet Simulations ; elle teste le pilote réactif historique, pas ce nouveau workflow SLAM.
 
 ## Code associé
 
