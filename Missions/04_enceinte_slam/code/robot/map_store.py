@@ -18,7 +18,7 @@ class MapStore:
         rows=[]
         for p in sorted(self.root.iterdir(),reverse=True):
             if p.name.startswith('.') or not p.is_dir() or p.is_symlink():continue
-            try:meta=json.loads((p/'metadata.json').read_text());rows.append(dict(name=p.name,created=meta['created'],robot_id=meta['robot_id'],has_graph=(p/'slam.posegraph').exists() and (p/'slam.data').exists()))
+            try:meta=json.loads((p/'metadata.json').read_text());rows.append(dict(name=p.name,created=meta['created'],robot_id=meta['robot_id'],navigation_mode=meta.get('navigation_mode','slam'),has_graph=(p/'slam.posegraph').exists() and (p/'slam.data').exists()))
             except (OSError,ValueError,KeyError):continue
         return rows
     def load(self,name):

@@ -15,7 +15,7 @@ Double-cliquer **OUVRIR URMC.command**, puis ouvrir [la console locale](http://1
 | 1 · Suivi de piste | [01_suivi_de_piste](Missions/01_suivi_de_piste/) | Pilotes caméra et banc ROS ; anciennement mission 0 |
 | 2 · Barrière bleue | [02_barriere](Missions/02_barriere/) | Suivi, arrêt et reprise ; réglages caméra à vérifier sur place |
 | 3 · Priorité à droite | [03_priorite_a_droite](Missions/03_priorite_a_droite/) | LiDAR, traversée sans lignes et maintien de cap ; essais matériels restants |
-| 4 · Enceinte / SLAM | [04_enceinte_slam](Missions/04_enceinte_slam/) | Cartographie, cartes enregistrées et navigation avec obstacles ; banc SLAM validé |
+| 4 · Enceinte / SLAM | [04_enceinte_slam](Missions/04_enceinte_slam/) | SLAM au choix, arrivée au clic et obstacles actualisés ; bancs ROS validés |
 | 5 · Palette | [05_stockage](Missions/05_stockage/) | Simulation ; perception réelle et pilote de l’aimant manquants |
 
 Chaque dossier de mission contient un README, son raccourci, son code et, lorsqu’ils existent, les liens vers ses tests. Les règles utiles sont intégrées au README. Le code spécifique n’est pas dupliqué.

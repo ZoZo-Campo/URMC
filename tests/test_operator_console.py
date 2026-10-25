@@ -166,7 +166,7 @@ def test_enclosure_replaces_manual_without_a_second_motor_process(tmp_path):
   def __init__(self):self.active=False;self.map_id=None
   def stop(self,required=False):self.active=False
   def ensure(self):pass
-  def request(self,path,data):self.active=True;self.map_id=data['map_id'];return {'success':True}
+  def request(self,path,data):self.active=True;self.map_id=data['map_id'];self.task=data['task'];return {'success':True}
   def summary(self):return dict(active=self.active,phase='ENTRY')
  maps=Maps();controller.mapping=maps
  lease=controller.start('manual')['lease'];previous=controller.process
@@ -175,6 +175,8 @@ def test_enclosure_replaces_manual_without_a_second_motor_process(tmp_path):
  assert controller.state()['mode']=='enclosure'
  with pytest.raises(ValueError):controller.manual(dict(lease=lease,seq=3,active=True,hold='x',x=1,yaw=0))
  controller.stop();assert not maps.active
+ controller.start('enclosure','chosen-map','goal');assert maps.task=='goal'
+ controller.stop()
 
 
 def test_slam_camera_relay_is_a_read_only_jpeg(monkeypatch,tmp_path):

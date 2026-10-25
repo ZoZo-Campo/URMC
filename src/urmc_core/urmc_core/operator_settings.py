@@ -35,6 +35,8 @@ SCHEMA={
  'm4_speed':(.10,.02,.15,.01,'Vitesse mission 4 (m/s)','Enceinte / SLAM'),
  'm4_radius':(.105,.09,.16,.005,'Rayon physique du robot (m)','Enceinte / SLAM'),
  'm4_margin':(.025,.01,.06,.005,'Marge autour du robot (m)','Enceinte / SLAM'),
+ 'm4_camera_light':(15,5,60,1,'Caméra d’essai : luminosité minimale','Enceinte / SLAM'),
+ 'm4_camera_change':(.12,.05,.4,.01,'Caméra d’essai : seuil de changement à l’arrêt','Enceinte / SLAM'),
  'm4_goal_tolerance':(.07,.04,.12,.01,'Tolérance aux repères (m)','Enceinte / SLAM'),
  'opening_delay':(1.,.5,3.,.1,'Confirmation de levée (s)','Barrière'),
 }

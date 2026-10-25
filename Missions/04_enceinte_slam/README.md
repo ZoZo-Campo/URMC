@@ -1,6 +1,13 @@
 # Mission 4 — Enceinte, SLAM et obstacles
 
-Dans la console du Mac, ouvrir **Missions → 04 → Préparer la mission 4**. Le panneau guide la préparation en trois étapes : **Créer la carte → Dessiner le trajet → Se placer et partir**. Le bouton **Essayer sur le Mac** ouvre directement le mode entraînement, sans commander un robot réel. Le nouveau pilote est un vrai nœud ROS 2 qui commande `/cmd_vel` après un lancement explicite. Il utilise exclusivement le LiDAR, l’odométrie et TF. La caméra du panneau est un retour opérateur optionnel, désactivé par défaut ; le règlement interdit son usage dans cette épreuve.
+Dans la console du Mac : **Missions → 04 → Préparer la mission 4**. Choisir d’abord le robot ou l’entraînement sur le Mac, puis le mode de navigation :
+
+- **Avec SLAM** : construire ou recharger une carte et confirmer la position du robot. Adapté à une carte préparée et réutilisable.
+- **Sans SLAM** : activer une vue LiDAR locale, dont l’origine est l’odométrie au démarrage. Aucun SLAM ni graphe n’est lancé ; garder les déplacements à moins de **3 m du départ**. La position peut dériver : ce mode ne remplace pas la localisation SLAM.
+
+Dans l’étape 2, choisir **parcours complet** (entrée → intérieur → arrivée) ou **aller directement au point d’arrivée**. Cliquer **Choisir mon arrivée**, puis sur le point exact de la carte. Ce point ne sera pas déplacé automatiquement si un obstacle apparaît.
+
+Les deux modes utilisent le même pilote ROS 2 et les mêmes contrôles LiDAR. Activer la carte ne fait pas bouger le robot : seul le manuel ou le bouton de départ commande les moteurs. Le règlement impose une perception exclusivement LiDAR pour cette mission. Vidéo et assistance caméra sont désactivées par défaut et réservées aux essais hors compétition.
 
 ## Une seule fois : préparer
 
@@ -10,7 +17,7 @@ Cliquer d’abord **Connecter / préparer** pour transférer les nouveaux fichie
 bash ~/urmc_essais_20261020/kit_robot/installer_mission4.sh
 ```
 
-Cela installe SLAM Toolbox, TF2 et YAML. Revenir ensuite à **Connecter / préparer** dans la console : les sources et le package mission 04 sont compilés avec les missions existantes. La préparation ne lance aucun mouvement.
+Cela installe SLAM Toolbox, TF2 et YAML. Le mode sans SLAM utilise TF2 mais ne nécessite pas de lancer SLAM Toolbox. Revenir ensuite à **Connecter / préparer** dans la console : les sources et le package mission 04 sont compilés avec les missions existantes. La préparation ne lance aucun mouvement.
 
 Sur le Mac, pour le banc SLAM complet : double-cliquer `Code/tools/preparer_slam_mac.command`. L’image Docker `urmc-slam:local` est différente de l’ancienne simulation réactive `urmc-humble:local`. Elle contient le vrai SLAM Toolbox.
 
@@ -35,9 +42,27 @@ Sur le Mac, pour le banc SLAM complet : double-cliquer `Code/tools/preparer_slam
 
 La mission vise d’abord l’entrée, puis le point intérieur, puis la sortie. Le chronomètre de 60 s démarre à l’atteinte du repère d’entrée, donc de façon conservatrice avant le franchissement complet. La sortie est validée par l’atteinte du repère extérieur choisi ; c’est pourquoi sa calibration et la zone autorisée comptent.
 
-Le planificateur A* utilise une carte avec empreinte du robot et marge, et y ajoute les obstacles des scans actuels. Le chemin est recalculé environ deux fois par seconde. Un repère intérieur occupé peut être remplacé par un point voisin jusqu’à 25 cm, en restant dans la zone autorisée. Les obstacles ne doivent donc pas être présents dans la carte préalable pour être évités. Si aucun passage connu n’est suffisamment large, le robot attend à l’arrêt ; il ne force pas le passage.
+Le planificateur A* utilise une carte avec empreinte du robot et marge, et une couche LiDAR actualisée. Un nouvel obstacle bloque immédiatement les cellules concernées. Un ancien obstacle de la carte est retiré de cette couche après trois scans distincts montrant le passage libre. Une zone masquée ne devient pas libre par supposition ; la carte enregistrée reste intacte et les zones inconnues restent interdites. Le chemin est recalculé environ deux fois par seconde. Un repère intérieur occupé peut être remplacé par un point voisin jusqu’à 25 cm, en restant dans la zone autorisée. Les obstacles ne doivent donc pas être présents dans la carte préalable pour être évités. Si aucun passage connu n’est suffisamment large, le robot attend à l’arrêt ; il ne force pas le passage.
 
 Le dernier contrôle de mouvement vérifie l’empreinte sur la carte et sur les points LiDAR actuels. Une approche trop serrée réduit la vitesse ou l’annule. La navigation ne recule pas automatiquement. Elle ne garantit pas la résolution de tout labyrinthe ni la réussite dans une enceinte bloquée.
+
+## Essai sans SLAM et arrivée au clic
+
+1. Choisir **Sans SLAM**, puis **Activer / recommencer sans SLAM**, robot à l’arrêt. Attendre les scans et l’odométrie récents. Le départ devient l’origine locale.
+2. Choisir **Aller directement au point d’arrivée**. La zone locale est déjà délimitée ; la réduire au terrain autorisé avec **Dessiner la zone**.
+3. Cliquer **Choisir mon arrivée**, puis dans une zone libre observée, à moins de 3 m du départ et suffisamment loin des parois. Si nécessaire, explorer doucement en manuel puis arrêter avant de choisir.
+4. Vérifier la position et les scans, puis **Aller à mon arrivée avec moteurs**. Un obstacle ajouté est contourné si un passage connu reste disponible ; sinon le robot attend à l’arrêt. Une vue locale n’a pas de pose SLAM à confirmer.
+5. **STOP ENCEINTE** termine l’essai. La limite est de 60 s depuis le départ pour le trajet direct. Un saut d’odométrie invalide la vue : la recommencer avant un nouveau départ.
+
+Le parcours complet est aussi disponible sans SLAM, avec les trois repères et la même limite de 3 m. Une sauvegarde locale fournit une image, une grille et les repères pour consultation ; **elle n’a pas de graphe et ne permet pas une relocalisation ultérieure**. Utiliser le SLAM pour une carte réutilisable.
+
+Avec SLAM, l’option **Aller directement au point d’arrivée** utilise également le point cliqué, après chargement de la carte et confirmation de la pose. La limite de 3 m concerne seulement le mode sans SLAM.
+
+## LiDAR permanent et caméra d’essai
+
+Le LiDAR est traité en continu dans les deux modes. Le chemin est recalculé environ deux fois par seconde et chaque commande moteur passe un contrôle à 20 Hz sur les scans actuels et l’empreinte du robot. Un changement peut donc provoquer un ralentissement, un arrêt ou un nouveau trajet.
+
+Pour les essais hors compétition uniquement, cocher **Assistance caméra pendant les essais**, robot à l’arrêt. Elle utilise `/image_raw/compressed`, profondeur 1 : une image absente, périmée ou trop sombre met le robot en pause. Une modification visible pendant un arrêt impose une courte pause de vérification. Le mouvement propre du robot n’est pas interprété comme un obstacle. Il s’agit d’une analyse simple de qualité et de changement de scène, pas d’une reconnaissance d’objets. Désactiver cette option et la vidéo pour l’épreuve officielle.
 
 ## Ce qui s’affiche
 
@@ -46,9 +71,9 @@ Le dernier contrôle de mouvement vérifie l’empreinte sur la carte et sur les
 - Scans orange, y compris les obstacles absents de la carte enregistrée.
 - Chemin recalculé, zone autorisée et repères entrée / intérieur / sortie.
 - Phase de mission, motif d’arrêt, temps restant, vitesse, tension batterie si publiée par le robot.
-- Caméra opérateur sur demande, hors épreuve officielle. Elle ne sert jamais au SLAM ni aux décisions.
+- Caméra opérateur sur demande, hors épreuve officielle. L’assistance optionnelle contrôle la fraîcheur, la luminosité et les changements de scène à l’arrêt ; elle peut suspendre le mouvement. Elle ne reconnaît pas les obstacles et ne mesure pas leur distance. Le LiDAR assure la détection géométrique.
 
-Les cartes sont séparées physiquement sur chaque robot et identifiées par leur numéro dans les métadonnées. Une carte simulée du banc n’est pas une carte du terrain réel. Les coordonnées sont dans le repère ROS `map`, distances en mètres. La carte prend en charge une origine orientée.
+Les cartes sont séparées physiquement sur chaque robot et identifiées par leur numéro dans les métadonnées. Une carte simulée du banc n’est pas une carte du terrain réel. Les coordonnées sont en mètres, dans le repère ROS `map` avec SLAM ou relativement à l’odométrie de départ sans SLAM. La carte prend en charge une origine orientée.
 
 ## Banc SLAM du Mac
 
@@ -59,6 +84,7 @@ Les cartes du banc persistent dans le volume Docker `urmc-cartes-simulation`. Ut
 ## Code associé
 
 - `code/robot/mission_enceinte.py` : SLAM, localisation TF, services HTTP privés et pilote moteur ROS 2.
+- `code/perception/live_navigation.py` : couche LiDAR vivante, vue sans SLAM et assistance caméra d’essai.
 - `code/perception/enclosure_map.py` : grille métrique, inflation, zone, A*, suivi et contrôle de collision.
 - `code/robot/map_store.py` : sauvegardes versionnées et export ZIP.
 - `../../kit_robot/mapping_manager.py`, `operator_agent.py` : supervision et exclusivité des moteurs.
@@ -71,9 +97,9 @@ Le pilote historique `urmc_mission_04/logic.py` et ses launch files restent disp
 
 Dans **Réglages → Enceinte / SLAM** : vitesse maximale 0,10 m/s initialement, rayon physique 10,5 cm, marge 2,5 cm et tolérance de repère 7 cm. Mesurer réellement le gabarit et vérifier les passages. Les seuils sont bornés, pas automatiquement certifiés pour le montage physique.
 
-Le LiDAR doit couvrir au moins 350°, avec au moins 90 % de mesures valides. Un retour `+inf` signifie libre jusqu’à `range_max`, une valeur invalide ne signifie pas libre. Scanner et odométrie doivent être datés de moins de 300 ms ; TF map→base doit également être récent. Le TF base→LiDAR est obligatoire : aucun décalage de capteur n’est inventé. Un saut de localisation termine l’essai et impose une nouvelle vérification de position.
+Le LiDAR doit couvrir au moins 350°, avec au moins 90 % de mesures valides. Un retour `+inf` signifie libre jusqu’à `range_max`, une valeur invalide ne signifie pas libre. Scanner et odométrie doivent être datés de moins de 300 ms ; TF map→base doit également être récent en mode SLAM. Sans SLAM, la pose provient de l’odométrie relative au départ. Le TF base→LiDAR est obligatoire : aucun décalage de capteur n’est inventé. Un saut de localisation termine l’essai et impose une nouvelle vérification de position.
 
-Les essais logiciels et simulés ne remplacent pas la calibration sur les robots 9/11. SLAM Toolbox doit être installé sur chacun. Le code moteur est prêt pour ces essais supervisés ; aucune réussite physique n’est affirmée.
+Les essais logiciels et simulés ne remplacent pas la calibration sur les robots 9/11. SLAM Toolbox doit être installé pour utiliser le mode SLAM. Le code moteur est prêt pour ces essais supervisés ; aucune réussite physique n’est affirmée.
 
 Documentation amont : [SLAM Toolbox Humble](https://docs.ros.org/en/humble/p/slam_toolbox/), [configuration officielle Humble](https://github.com/SteveMacenski/slam_toolbox/tree/humble/config). Règlement fourni : section 4.2.1, page 5.
 

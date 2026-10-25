@@ -6,7 +6,7 @@ Ouvrir `OUVRIR URMC.command`, sélectionner le robot puis **Connecter / prépare
 
 - **Piloter** : vidéo, LiDAR, maintien des flèches pour le manuel et raison de l’état courant.
 - **Missions** : cartes 01 à 04, avec accès au panneau Enceinte / SLAM et raccourci d’entraînement sur le Mac ; mission 5 indiquée en simulation.
-- **Enceinte / SLAM** : préparation guidée en trois étapes, progression visible et prochaine action indiquée : carte, parcours, puis position/départ. Les commandes de départ restent désactivées si la carte, les repères, la position ou les capteurs ne sont pas prêts.
+- **Enceinte / SLAM** : préparation guidée en trois étapes, progression visible et prochaine action indiquée : choix SLAM ou vue locale, parcours complet ou arrivée au clic, puis position/départ. Sans SLAM, la pose est relative à l’odométrie de départ et les déplacements sont limités à 3 m. Les commandes de départ restent désactivées si la carte, les repères, la position ou les capteurs ne sont pas prêts.
 - **Simulations** : cinq bancs ROS synthétiques ; le banc SLAM dédié est dans Enceinte / SLAM.
 - **Réglages** : perception, vitesse, seuils de priorité et gabarit/marge de l’enceinte.
 - **Mode d’emploi** : accès aux documents de référence et étapes de connexion.
@@ -33,7 +33,7 @@ Le worker SLAM de la mission 4 écoute localhost:8093 derrière l’agent. Il ne
 
 La vidéo sert toujours la dernière image, sans accumulation de flux. Les images périmées sont refusées. Barycentres, centre de piste, surfaces bleues et masques sont annotés. La carte LiDAR affiche les points, les secteurs et les cibles de priorité. Chaque réponse identifie son robot.
 
-La mission 4 superpose la carte enregistrée, la pose TF, les obstacles LiDAR actuels, l’empreinte et le chemin recalculé. Sa navigation ne souscrit aucune caméra. Le retour caméra opérateur est optionnel, hors épreuve officielle.
+La mission 4 superpose la carte enregistrée, la pose TF, les obstacles LiDAR actuels, l’empreinte et le chemin recalculé. Sans SLAM, une vue locale utilise l’odométrie de départ. Une couche LiDAR bloque les nouveaux obstacles et confirme la disparition d’anciens obstacles après trois scans distincts libres ; la carte enregistrée reste intacte. Par défaut aucun abonnement caméra n’est créé. Vidéo et assistance caméra sont optionnelles, hors épreuve officielle : qualité d’image et changements à l’arrêt, sans reconnaissance d’obstacles ni estimation de distance.
 
 ## Fichiers locaux et publication
 

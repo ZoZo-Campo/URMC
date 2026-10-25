@@ -46,7 +46,7 @@ class Controller:
      except subprocess.TimeoutExpired:p.kill();p.wait(timeout=1)
    self.process=None;self.mode='idle';self.last={'state':'STOP','v':0,'w':0}
    return {'success':True,'message':'Mission arrêtée. Vidéo disponible.'}
- def start(self,mode,map_id=None):
+ def start(self,mode,map_id=None,task='enclosure'):
   if mode not in ALGORITHMS and mode!='enclosure':raise ValueError('Algorithme inconnu.')
   with self.lock:
    self.stop()
@@ -56,7 +56,7 @@ class Controller:
      try:fcntl.flock(h,fcntl.LOCK_EX|fcntl.LOCK_NB)
      except BlockingIOError:raise ValueError('Une mission externe tourne. L’arrêter avant de changer de mode.')
    if mode=='enclosure':
-    self.mapping.ensure();result=self.mapping.request('/action',dict(action='run',map_id=map_id));self.mode=mode;return result
+    self.mapping.ensure();result=self.mapping.request('/action',dict(action='run',map_id=map_id,task=task));self.mode=mode;return result
    env=os.environ.copy();env['URMC_SETTINGS_FILE']=str(self.settings_path)
    args=[sys.executable,'-u',str(self.root/'kit_robot'/ALGORITHMS[mode][0]),*ALGORITHMS[mode][1:]]
    self.process=self.popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1,env=env)
@@ -134,7 +134,7 @@ def handler(controller,token):
       generation=data.get('generation')
       if isinstance(generation,bool) or not isinstance(generation,int) or generation<=controller.generation:raise ValueError('Action ancienne refusée.')
       controller.generation=generation
-      result=controller.start(data.get('algorithm'),data.get('map_id')) if self.path=='/start' else controller.stop()
+      result=controller.start(data.get('algorithm'),data.get('map_id'),data.get('task','enclosure')) if self.path=='/start' else controller.stop()
     elif self.path=='/mapping':
      with controller.lock:
       if data.get('action') not in ('manual',):controller.stop()

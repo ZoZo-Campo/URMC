@@ -1,4 +1,4 @@
-"""Mission 4 / SLAM worker. LiDAR + TF + odometry only; no camera subscription."""
+"""Mission 4: SLAM or local LiDAR/odometry, with optional camera test assistance."""
 # Works both from the mission folder and from the stable kit_robot entry point.
 from pathlib import Path as _LayoutPath
 import sys as _layout_sys
@@ -17,12 +17,13 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile,ReliabilityPolicy,DurabilityPolicy,HistoryPolicy,qos_profile_sensor_data
 from rclpy.time import Time
 from geometry_msgs.msg import Twist,PoseWithCovarianceStamped
-from sensor_msgs.msg import LaserScan,BatteryState
+from sensor_msgs.msg import LaserScan,BatteryState,CompressedImage
 from nav_msgs.msg import OccupancyGrid,Odometry
 from std_msgs.msg import String
 from tf2_ros import Buffer,TransformListener
 from ament_index_python.packages import get_package_share_directory
 from urmc_core.enclosure_map import Grid,astar,plan_goal,path_command,swept_clear,validate_route,bounded_grid
+from urmc_core.live_navigation import LocalView,LiveGridLayer,CameraWatch,validate_destination
 from urmc_core.operator_settings import current
 from map_store import MapStore,slug
 ROOT=_WORKSPACE
@@ -45,6 +46,7 @@ class EnclosureNode(Node):
         self.prefix='/urmc_sim/m04_slam' if simulation else '';self.topic=lambda name:self.prefix+'/'+name
         self.tf=Buffer();self.listener=TransformListener(self.tf,self)
         self.grid=None;self.map_id=None;self.mode='off';self.selected=None;self.route={};self.zone=None;self.navigation_grid=None;self.revision=0;self.active=False;self.confirmed=False
+        self.task='enclosure';self.local_view=None;self.local_origin=None;self.local_fault=False;self.odom_pose=None;self.odom_motion=None;self.measured_speed=0.;self.measured_rotation=0.;self.live_layer=LiveGridLayer();self.camera_enabled=False;self.camera_watch=CameraWatch();self.camera_sub=None
         self.phase='IDLE';self.reason='Créer une carte ou charger une carte existante.';self.pub=None;self.locks=[]
         self.raw_scan=None;self.scan_received=0.;self.odom_received=0.;self.odom_stamp=0.;self.pose=None;self.pose_stamp=0.;self.local_points=[];self.world_points=[]
         self.scan_good=False;self.sensor_reason='Attente LiDAR / TF';self.map_received=0.;self.previous_pose=None;self.path=[];self.plan=None;self.plan_time=0.;self.plan_target=None;self.last_replan=0.;self.epoch=0
@@ -52,7 +54,7 @@ class EnclosureNode(Node):
         self.started=None;self.entered=None;self.finished_at=None;self.v=self.w=0.;self.last_status=0.;self.last_snapshot=0.;self.job='';self.battery=None;self.seed_time=None
         self.manual_deadline=0.;self.manual_seq=-1;self.manual_expired=None;self.manual_hold=None
         self.slam_process=None;self.store=MapStore(self.root/'cartes');self.sessions=self.root/'session_robot11';self.sessions.mkdir(exist_ok=True)
-        latest=QoSProfile(depth=1,reliability=ReliabilityPolicy.BEST_EFFORT)
+        latest=QoSProfile(depth=1,reliability=ReliabilityPolicy.BEST_EFFORT);self.sensor_qos=latest
         map_qos=QoSProfile(depth=1,reliability=ReliabilityPolicy.RELIABLE,durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.create_subscription(LaserScan,self.topic('scan'),self.scan,latest)
         self.create_subscription(Odometry,self.topic('odom'),self.odom,latest)
@@ -70,7 +72,7 @@ class EnclosureNode(Node):
         return box.get('result',{'success':True})
     def scan(self,msg):
         age=self.get_clock().now().nanoseconds/1e9-stamp(msg)
-        if not 0<=age<.3 or msg.angle_increment<=0 or len(msg.ranges)<90:self.scan_good=False;return
+        if not 0<=age<.3 or msg.angle_increment<=0 or len(msg.ranges)<90 or not math.isfinite(msg.range_max) or not 0<msg.range_min<msg.range_max:self.scan_good=False;return
         if self.raw_scan is not None and stamp(msg)<=stamp(self.raw_scan):return
         valid=sum(r==math.inf or (math.isfinite(r) and msg.range_min<=r<=msg.range_max) for r in msg.ranges)
         coverage=msg.angle_increment*len(msg.ranges)
@@ -79,37 +81,82 @@ class EnclosureNode(Node):
     def odom(self,msg):
         age=self.get_clock().now().nanoseconds/1e9-stamp(msg);p=msg.pose.pose.position;q=msg.pose.pose.orientation
         if not 0<=age<.3 or not all(math.isfinite(v) for v in (p.x,p.y,q.x,q.y,q.z,q.w)) or abs(sum(v*v for v in (q.x,q.y,q.z,q.w))-1)>.05:self.odom_received=0.;return
-        self.odom_received=time.monotonic();self.odom_stamp=stamp(msg)
+        value=stamp(msg)
+        if value<=self.odom_stamp:return
+        pose=(p.x,p.y,yaw(q))
+        if self.odom_motion:
+            old,t=self.odom_motion;dt=value-t
+            if dt>0:
+                self.measured_speed=math.dist(pose[:2],old[:2])/dt;self.measured_rotation=abs(math.atan2(math.sin(pose[2]-old[2]),math.cos(pose[2]-old[2])))/dt
+        self.odom_motion=(pose,value);self.odom_pose=pose;self.odom_received=time.monotonic();self.odom_stamp=value
     def map(self,msg):
+        if self.mode=='local':return
         try:
             if msg.header.frame_id!='map':raise ValueError('Repère de carte inattendu.')
             p=msg.info.origin.position;q=msg.info.origin.orientation
             grid=Grid(np.asarray(msg.data).reshape(msg.info.height,msg.info.width),msg.info.resolution,(p.x,p.y,yaw(q)))
             self.grid=grid;self.revision+=1;self.map_received=time.monotonic()
         except Exception as e:self.reason='Carte refusée : '+str(e)
+    def working_grid(self):
+        if self.grid is None:return None
+        return self.live_layer.apply(self.grid) if self.mode=='localization' else self.grid
+    def camera_state(self):
+        return self.camera_watch.report(time.monotonic(),current()['m4_camera_light']) if self.camera_enabled else dict(enabled=False,allowed=True,state='DESACTIVEE')
+    def camera(self,msg):
+        clock=self.get_clock().now().nanoseconds/1e9
+        if not self.camera_enabled or not 0<=clock-stamp(msg)<.35:return
+        try:
+            import cv2
+            image=cv2.imdecode(np.frombuffer(msg.data,np.uint8),cv2.IMREAD_COLOR)
+            if image is None:return
+            moving=abs(self.v)>.005 or abs(self.w)>.03 or self.measured_speed>.01 or self.measured_rotation>.03
+            self.camera_watch.image(image,time.monotonic(),stamp(msg),moving=moving,change_threshold=current()['m4_camera_change'])
+        except Exception:pass
+    def set_camera(self,data):
+        if type(data.get('enabled')) is not bool:raise ValueError('Booléen attendu pour l’assistance caméra.')
+        if self.pub or self.active:raise ValueError('Arrêter avant de changer l’assistance caméra.')
+        self.camera_enabled=data['enabled'];self.camera_watch=CameraWatch()
+        if self.camera_sub is not None:self.destroy_subscription(self.camera_sub);self.camera_sub=None
+        if self.camera_enabled:self.camera_sub=self.create_subscription(CompressedImage,self.topic('image_raw/compressed'),self.camera,self.sensor_qos)
+        return {'success':True,'message':'Assistance caméra d’essai activée ; attendre une image récente.' if self.camera_enabled else 'Assistance caméra désactivée : navigation LiDAR uniquement.'}
     def sensors(self):
         now=time.monotonic();clock=self.get_clock().now().nanoseconds/1e9
         if not self.scan_good or self.raw_scan is None or not 0<=now-self.scan_received<.3 or not 0<=clock-stamp(self.raw_scan)<.3:return False,'LiDAR absent, périmé ou couverture incomplète'
-        if not 0<=now-self.odom_received<.3 or not 0<=clock-self.odom_stamp<.3:return False,'Odométrie absente ou périmée'
+        if self.odom_pose is None or not 0<=now-self.odom_received<.3 or not 0<=clock-self.odom_stamp<.3:return False,'Odométrie absente ou périmée'
         try:
-            trans=self.tf.lookup_transform('map','base_footprint',Time())
-            age=clock-stamp(trans)
-            if not -.1<=age<.3:return False,'Position TF périmée'
-            p=trans.transform.translation;q=trans.transform.rotation
-            pose=(p.x,p.y,yaw(q))
+            if self.mode=='local':
+                if self.local_origin is None or self.local_fault:return False,'Vue locale à réinitialiser après changement d’odométrie'
+                ox,oy,oa=self.local_origin;dx,dy=self.odom_pose[0]-ox,self.odom_pose[1]-oy;c,s=math.cos(oa),math.sin(oa)
+                pose=(dx*c+dy*s,-dx*s+dy*c,math.atan2(math.sin(self.odom_pose[2]-oa),math.cos(self.odom_pose[2]-oa)));pose_stamp=self.odom_stamp
+                if math.hypot(pose[0],pose[1])>3.:
+                    self.stop_navigation('FAULT','Limite de 3 m de la vue locale atteinte');self.local_fault=True;return False,'Recommencer une vue locale ou utiliser le SLAM'
+            else:
+                trans=self.tf.lookup_transform('map','base_footprint',Time());age=clock-stamp(trans)
+                if not -.1<=age<.3:return False,'Position TF périmée'
+                p=trans.transform.translation;q=trans.transform.rotation;pose=(p.x,p.y,yaw(q));pose_stamp=stamp(trans)
             if not all(math.isfinite(v) for v in pose):return False,'Pose non finie'
             laser=self.tf.lookup_transform('base_footprint',self.raw_scan.header.frame_id,Time()).transform
             lyaw=yaw(laser.rotation);lx,ly=laser.translation.x,laser.translation.y
-            points=[]
-            for i,r in enumerate(self.raw_scan.ranges):
-                if math.isfinite(r) and self.raw_scan.range_min<=r<=self.raw_scan.range_max:
-                    a=self.raw_scan.angle_min+i*self.raw_scan.angle_increment+lyaw;points.append((lx+r*math.cos(a),ly+r*math.sin(a)))
-            if self.active and self.previous_pose and (math.dist(pose[:2],self.previous_pose[:2])>.12 or abs(math.atan2(math.sin(pose[2]-self.previous_pose[2]),math.cos(pose[2]-self.previous_pose[2])))>.35):
+            jumped=self.previous_pose and (math.dist(pose[:2],self.previous_pose[:2])>.12 or abs(math.atan2(math.sin(pose[2]-self.previous_pose[2]),math.cos(pose[2]-self.previous_pose[2])))>.35)
+            if jumped and (self.active or self.mode=='local'):
                 self.stop_navigation('FAULT','Saut de localisation : vérifier la position avant de relancer.');self.confirmed=False
-            self.previous_pose=pose;self.pose=pose;self.pose_stamp=stamp(trans);self.local_points=points
-            c,s=math.cos(pose[2]),math.sin(pose[2]);self.world_points=[(pose[0]+x*c-y*s,pose[1]+x*s+y*c) for x,y in points]
+                if self.mode=='local':self.local_fault=True;return False,'Vue locale invalidée par un saut d’odométrie'
+            self.previous_pose=pose;self.pose=pose;self.pose_stamp=pose_stamp
+            c,s=math.cos(pose[2]),math.sin(pose[2]);origin=(pose[0]+lx*c-ly*s,pose[1]+lx*s+ly*c)
+            points=[];rays=[]
+            for i,value in enumerate(self.raw_scan.ranges):
+                if value!=math.inf and not (math.isfinite(value) and self.raw_scan.range_min<=value<=self.raw_scan.range_max):continue
+                r=min(value,self.raw_scan.range_max);a=self.raw_scan.angle_min+i*self.raw_scan.angle_increment+lyaw
+                x,y=lx+r*math.cos(a),ly+r*math.sin(a);wx,wy=pose[0]+x*c-y*s,pose[1]+x*s+y*c
+                occupied=math.isfinite(value) and value<self.raw_scan.range_max-.02
+                rays.append((wx,wy,occupied))
+                if occupied:points.append((x,y))
+            self.local_points=points;self.world_points=[(pose[0]+x*c-y*s,pose[1]+x*s+y*c) for x,y in points]
+            if self.mode=='local' and self.local_view is not None:
+                if self.local_view.observe(origin,rays,stamp(self.raw_scan)):self.grid=self.local_view.grid;self.revision+=1
+            elif self.mode=='localization' and self.grid is not None:self.live_layer.observe(self.grid,origin,rays,stamp(self.raw_scan))
             return True,'Capteurs et position récents'
-        except Exception:return False,'TF map → base_footprint ou base → LiDAR indisponible'
+        except Exception:return False,'TF map → base_footprint ou base → LiDAR indisponible' if self.mode!='local' else 'Transformation base → LiDAR indisponible'
     def acquire_motors(self):
         for name in ('.camera_follow.lock','.barrier.lock'):
             f=(self.root/name).open('w')
@@ -131,15 +178,20 @@ class EnclosureNode(Node):
         for h in self.locks:h.close()
         self.locks=[];self.active=False;self.manual_deadline=0.;self.epoch+=1;self.path=[];self.v=self.w=0.;self.phase=phase;self.reason=reason
         return {'success':True,'message':reason}
-    def run_navigation(self,map_id):
+    def run_navigation(self,map_id,task='enclosure'):
         self.check_id(map_id);fresh,why=self.sensors()
         if not fresh:raise ValueError(why)
-        if self.mode!='localization' or not self.confirmed:raise ValueError('Charger une carte puis confirmer la position du robot.')
+        if task not in ('enclosure','goal'):raise ValueError('Choisir parcours complet ou point d’arrivée.')
+        if self.mode not in ('localization','local') or not self.confirmed:raise ValueError('Charger une carte et confirmer la position, ou activer la vue sans SLAM.')
+        if not self.camera_state()['allowed']:raise ValueError('Assistance caméra : attendre une image claire, récente et stable.')
         if self.grid is None:raise ValueError('Aucune carte utilisable.')
-        self.navigation_grid=bounded_grid(self.grid,self.zone)
-        self.route=validate_route(self.route,self.navigation_grid,self.radius());self.plan_target=None
-        self.stop_navigation();self.acquire_motors();self.active=True;self.phase='ENTRY';self.started=time.monotonic();self.entered=None;self.finished_at=None;self.last_replan=0.;self.plan=None;self.epoch+=1
-        return {'success':True,'message':'Mission 4 démarrée : entrée → intérieur → sortie.'}
+        self.navigation_grid=bounded_grid(self.working_grid(),self.zone)
+        if task=='enclosure':self.route=validate_route(self.route,self.navigation_grid,self.radius())
+        else:validate_destination(self.route,self.navigation_grid,self.radius())
+        if self.mode=='local' and any(math.hypot(*point)>3. for point in (self.route.values() if task=='enclosure' else [self.route['exit']])):raise ValueError('Sans SLAM, garder les objectifs à moins de 3 m de l’origine.')
+        self.task=task;self.plan_target=None
+        self.stop_navigation();self.acquire_motors();self.active=True;self.phase='GOAL' if task=='goal' else 'ENTRY';self.started=time.monotonic();self.entered=self.started if task=='goal' else None;self.finished_at=None;self.last_replan=0.;self.plan=None;self.epoch+=1;self.reason='Calcul du trajet vers l’arrivée' if task=='goal' else 'Calcul du trajet vers l’entrée'
+        return {'success':True,'message':'Navigation vers le point d’arrivée démarrée.' if task=='goal' else 'Mission 4 démarrée : entrée → intérieur → sortie.'}
     def radius(self):cfg=current();return cfg['m4_radius']+cfg['m4_margin']
     def check_id(self,map_id):
         if not self.map_id or map_id!=self.map_id:raise ValueError('La carte a changé. Rafraîchir avant de commander.')
@@ -149,14 +201,16 @@ class EnclosureNode(Node):
         key=data.get('key');point=data.get('point')
         if key not in ('entry','inside','exit') or not isinstance(point,list) or len(point)!=2 or not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in point):raise ValueError('Repère invalide.')
         if self.grid is None:raise ValueError('Créer ou charger une carte.')
-        p=self.grid.cell(*point)
-        if not self.grid.inside(p) or self.grid.blocked(self.radius())[p[1],p[0]]:raise ValueError('Point inconnu, occupé ou trop proche d’un mur.')
+        grid=self.working_grid();p=grid.cell(*point)
+        if not grid.inside(p) or grid.blocked(self.radius()+(.045 if key=='exit' else 0.))[p[1],p[0]]:raise ValueError('Point inconnu, occupé ou trop proche d’un mur.')
+        if self.mode=='local' and math.hypot(*point)>3.:raise ValueError('Choisir une arrivée à moins de 3 m de l’origine locale.')
         self.route[key]=point
         if self.selected:
             folder=self.store.folder(self.selected);meta=json.loads((folder/'metadata.json').read_text());meta['route']=self.route;self.store.metadata(folder,meta)
         return {'success':True}
     def seed(self,data):
         self.check_id(data.get('map_id'))
+        if self.mode=='local':raise ValueError('Sans SLAM, l’origine est l’odométrie de départ ; recommencer la vue pour la réinitialiser.')
         if self.active:raise ValueError('Arrêter avant de relocaliser.')
         point=data.get('pose')
         if not isinstance(point,list) or len(point)!=3 or not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in point):raise ValueError('Pose invalide.')
@@ -197,13 +251,13 @@ class EnclosureNode(Node):
         if self.slam_process is not None and self.slam_process.poll() is not None and self.mode!='off':
             self.stop_navigation('FAULT','SLAM arrêté : consulter cartographie_slam.log');self.mode='off';self.confirmed=False
         if self.active:
-            if self.entered is not None and now-self.entered>=60:self.stop_navigation('TIMEOUT','Délai de 60 s écoulé depuis l’entrée')
+            if self.entered is not None and now-self.entered>=60:self.stop_navigation('TIMEOUT','Délai de 60 s écoulé depuis le départ' if self.task=='goal' else 'Délai de 60 s écoulé depuis l’entrée')
             elif not fresh:self.reason=self.sensor_reason;self.path=[]
             elif self.grid is None:self.reason='Carte absente'
             else:
-                target=self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit'}[self.phase]]
+                target=self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit','GOAL':'exit'}[self.phase]]
                 if math.dist(self.pose[:2],target)<cfg['m4_goal_tolerance']:
-                    if self.phase=='EXIT':self.stop_navigation('DONE','Sortie atteinte ; robot arrêté')
+                    if self.phase in ('EXIT','GOAL'):self.stop_navigation('DONE','Arrivée atteinte ; robot arrêté')
                     else:
                         if self.phase=='ENTRY':self.entered=now
                         self.phase='INSIDE' if self.phase=='ENTRY' else 'EXIT';self.plan_target=None;self.epoch+=1;self.path=[];self.plan=None;self.last_replan=0.
@@ -215,8 +269,8 @@ class EnclosureNode(Node):
                         except Exception:self.path=[]
                         self.plan=None
                     if self.plan is None and now-self.last_replan>.45:
-                        epoch=self.epoch;grid=bounded_grid(self.grid,self.zone);self.navigation_grid=grid;pose=self.pose;points=list(self.world_points);radius=self.radius();target=self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit'}[self.phase]]
-                        self.plan=self.pool.submit(lambda e,g,p,t,r,o,n,near:(e,n,plan_goal(g,p[:2],t,r,o,near)),epoch,grid,pose,target,radius,points,now,self.phase=='INSIDE');self.last_replan=now
+                        epoch=self.epoch;grid=bounded_grid(self.working_grid(),self.zone);self.navigation_grid=grid;pose=self.pose;points=list(self.world_points);radius=self.radius();target=self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit','GOAL':'exit'}[self.phase]]
+                        self.plan=self.pool.submit(lambda e,g,p,t,r,o,n,near,local:(e,n,plan_goal(g,p[:2],t,r,o,near,allow_start=local)),epoch,grid,pose,target,radius,points,now,self.phase=='INSIDE',self.mode=='local');self.last_replan=now
                     if self.path and now-self.plan_time<1.2:
                         v,w=path_command(self.pose,self.path,cfg['m4_speed']);self.reason='Trajet recalculé avec les obstacles LiDAR'
                     else:self.reason='Recherche d’un passage connu et libre ; arrêt si aucun trajet'
@@ -224,7 +278,16 @@ class EnclosureNode(Node):
             if now>self.manual_deadline:self.manual_expired=self.manual_hold;self.stop_navigation('STOP','Maintien manuel expiré')
             elif fresh:v,w=self.v,self.w
         if self.pub:
+            if self.camera_enabled and not self.camera_state()['allowed']:v=w=0.;self.reason='Pause assistance caméra : '+self.camera_state()['state']
             grid=self.navigation_grid if self.active else self.grid
+            if self.mode=='local' and self.grid is not None:
+                # The planner inflates raster hits; final local collision checking
+                # uses exact CURRENT scan points, while preserving unknown space
+                # and the authorized boundary. Avoid counting hit cells twice.
+                cells=self.grid.data.copy()
+                if self.local_view is not None:cells[self.local_view.current_hits]=0
+                grid=Grid(cells,self.grid.res,self.grid.origin)
+                if self.active:grid=bounded_grid(grid,self.zone)
             if not fresh:v=w=0.;self.reason='Arrêt : données périmées'
             elif not swept_clear(self.pose,v,w,grid,self.radius(),self.local_points,horizon=.35):
                 safe=False
@@ -237,15 +300,16 @@ class EnclosureNode(Node):
         if now-self.last_status>.3:
             self.status.publish(String(data=json.dumps(self.summary())));self.last_status=now
     def summary(self):
-        return dict(available=True,simulation=self.simulation,slam_available=self.slam_share is not None,active=self.active,phase=self.phase,reason=self.reason,mode=self.mode,map_id=self.map_id,selected=self.selected,confirmed=self.confirmed,v=self.v,w=self.w,job=self.job,robot_id=int(os.environ.get('URMC_ROBOT_ID','11')))
+        return dict(available=True,simulation=self.simulation,slam_available=self.slam_share is not None,active=self.active,phase=self.phase,reason=self.reason,mode=self.mode,navigation_mode='local' if self.mode=='local' else 'slam',task=self.task,camera=self.camera_state(),map_id=self.map_id,selected=self.selected,confirmed=self.confirmed,v=self.v,w=self.w,job=self.job,robot_id=int(os.environ.get('URMC_ROBOT_ID','11')))
     def cache_snapshot(self,fresh):
         data=self.summary();data.update(pose=self.pose,pose_age=max(0.,self.get_clock().now().nanoseconds/1e9-self.pose_stamp) if self.pose_stamp else None,
             scan_age=max(0.,time.monotonic()-self.scan_received) if self.scan_received else None,odom_age=max(0.,time.monotonic()-self.odom_received) if self.odom_received else None,
-            fresh=fresh,nearest_obstacle=min((math.hypot(x,y) for x,y in self.local_points),default=None),known_percent=round(float(np.count_nonzero(self.grid.data>=0)/self.grid.data.size*100),1) if self.grid else None,zone=self.zone,route=self.route,path=self.path[::max(1,len(self.path)//250)],points=self.world_points[::max(1,len(self.world_points)//240)],radius=self.radius(),battery_voltage=self.battery,
+            fresh=fresh,environment_revision=self.live_layer.revision if self.mode=='localization' else self.revision,cleared_obstacle_cells=self.live_layer.cleared if self.mode=='localization' else 0,destination=self.route.get('exit'),local_limit=3. if self.mode=='local' else None,nearest_obstacle=min((math.hypot(x,y) for x,y in self.local_points),default=None),known_percent=round(float(np.count_nonzero(self.grid.data>=0)/self.grid.data.size*100),1) if self.grid else None,zone=self.zone,route=self.route,path=self.path[::max(1,len(self.path)//250)],points=self.world_points[::max(1,len(self.world_points)//240)],radius=self.radius(),battery_voltage=self.battery,
             remaining=max(0.,60-((self.finished_at or time.monotonic())-self.entered)) if self.entered else 60.,maps=self.store.list())
         if self.grid:
-            if self.png_revision!=self.revision:self.png=base64.b64encode(self.grid.png()).decode();self.png_revision=self.revision
-            data['map']=dict(width=self.grid.w,height=self.grid.h,resolution=self.grid.res,origin=self.grid.origin,png=self.png,revision=self.revision)
+            revision=(self.revision,self.live_layer.revision if self.mode=='localization' else 0)
+            if self.png_revision!=revision:self.png=base64.b64encode(self.working_grid().png()).decode();self.png_revision=revision
+            data['map']=dict(width=self.grid.w,height=self.grid.h,resolution=self.grid.res,origin=self.grid.origin,png=self.png,revision=list(revision),frame='local_odom' if self.mode=='local' else 'map')
         with self.snapshot_lock:self.cached=data
     def snapshot(self):
         with self.snapshot_lock:return dict(self.cached)
@@ -268,7 +332,7 @@ class EnclosureNode(Node):
             if not graph.with_suffix('.posegraph').exists() or not graph.with_suffix('.data').exists():raise ValueError('Graphe SLAM manquant : refaire puis enregistrer la cartographie.')
         config=self.slam_config(mode,graph)
         def reset():
-            self.map_id=uuid.uuid4().hex;self.mode=mode;self.selected=data.get('name') if mode=='localization' else None;self.route=meta.get('route',{}) if meta else {};self.zone=meta.get('zone') if meta else None;self.grid=grid;self.revision+=1;self.confirmed=False;self.seed_time=None;self.previous_pose=None;self.pose=None;self.phase='IDLE';self.reason='Cartographie : parcourir l’enceinte en manuel' if mode=='mapping' else 'Carte chargée : définir puis confirmer la pose'
+            self.map_id=uuid.uuid4().hex;self.mode=mode;self.selected=data.get('name') if mode=='localization' else None;self.route=meta.get('route',{}) if meta else {};self.zone=meta.get('zone') if meta else None;self.grid=grid;self.live_layer=LiveGridLayer();self.local_view=None;self.local_origin=None;self.local_fault=False;self.revision+=1;self.confirmed=False;self.seed_time=None;self.previous_pose=None;self.pose=None;self.phase='IDLE';self.reason='Cartographie : parcourir l’enceinte en manuel' if mode=='mapping' else 'Carte chargée : définir puis confirmer la pose'
         self.ros(reset)
         executable='localization_slam_toolbox_node' if mode=='localization' else 'async_slam_toolbox_node'
         args=['ros2','run','slam_toolbox',executable,'--ros-args','--params-file',str(config)]
@@ -277,15 +341,27 @@ class EnclosureNode(Node):
         time.sleep(.2)
         if self.slam_process.poll() is not None:raise ValueError('Démarrage SLAM échoué : consulter cartographie_slam.log')
         return {'success':True,'message':'SLAM démarré, attendre la carte et la localisation.'}
+    def start_local(self):
+        self.ros(lambda:self.stop_navigation());stop_process(self.slam_process);self.slam_process=None
+        def reset():
+            now=time.monotonic()
+            if self.odom_pose is None or not 0<=now-self.odom_received<.3:raise ValueError('Attendre une odométrie récente avant d’activer la vue sans SLAM.')
+            self.local_origin=self.odom_pose;self.local_view=LocalView();self.grid=self.local_view.grid;self.live_layer=LiveGridLayer();self.mode='local';self.map_id=uuid.uuid4().hex;self.selected=None;self.route={};self.zone=[-3.5,-3.5,3.5,3.5];self.navigation_grid=None;self.revision+=1;self.previous_pose=None;self.local_fault=False;self.confirmed=True;self.phase='IDLE';self.reason='Vue locale sans SLAM : origine au démarrage, dérive odométrique possible';self.seed_time=None
+            return {'success':True,'message':'Vue locale active, sans SLAM. Choisir l’arrivée dans la zone observée, à moins de 3 m.'}
+        return self.ros(reset)
     def save_map(self,data):
         self.check_id(data.get('map_id'))
         if self.pub or self.active:raise ValueError('Arrêter les moteurs avant d’enregistrer.')
-        if self.mode!='mapping' or self.grid is None:raise ValueError('Créer une carte en mode SLAM avant d’enregistrer.')
+        if self.mode not in ('mapping','local') or self.grid is None:raise ValueError('Créer une carte ou une vue locale avant d’enregistrer.')
         label=slug(data.get('name'));name=label+'_'+datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
         final=self.store.folder(name)
         if final.exists():raise ValueError('Cette version existe déjà. Choisir un autre nom.')
         temp=self.store.root/('.'+name+'_'+secrets.token_hex(3));temp.mkdir()
         try:
+            if self.mode=='local':
+                meta=dict(created=datetime.now(timezone.utc).isoformat(),robot_id=int(os.environ.get('URMC_ROBOT_ID','11')),route=self.route,zone=self.zone,map_id=self.map_id,format_version=1,navigation_mode='local')
+                self.store.write_grid(temp,self.grid,meta);temp.rename(final)
+                return {'success':True,'name':name,'message':'Vue locale enregistrée pour consultation ; ce fichier n’est pas un graphe SLAM et ne permet pas de se relocaliser.'}
             from slam_toolbox.srv import SerializePoseGraph
             client=self.create_client(SerializePoseGraph,self.topic('slam_toolbox/serialize_map'))
             try:
@@ -305,6 +381,8 @@ class EnclosureNode(Node):
             action=data.get('action')
             if action=='stop':return self.ros(lambda:self.stop_navigation())
             if action=='new':return self.start_slam('mapping',data)
+            if action=='local':return self.start_local()
+            if action=='camera':return self.ros(lambda:self.set_camera(data))
             if action=='load':return self.start_slam('localization',data)
             if action=='save':return self.save_map(data)
             if action=='route':return self.ros(lambda:self.set_route(data))
@@ -319,7 +397,7 @@ class EnclosureNode(Node):
                 return self.ros(zone)
             if action=='pose':return self.ros(lambda:self.seed(data))
             if action=='confirm':return self.ros(lambda:self.confirm(data.get('map_id')))
-            if action=='run':return self.ros(lambda:self.run_navigation(data.get('map_id')))
+            if action=='run':return self.ros(lambda:self.run_navigation(data.get('map_id'),data.get('task','enclosure')))
             if action=='manual':return self.ros(lambda:self.sim_manual(data))
             if action=='obstacles' and self.simulation:
                 from rcl_interfaces.srv import SetParameters

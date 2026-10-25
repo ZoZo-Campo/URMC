@@ -57,3 +57,38 @@ def test_timer_freezes_after_completion(actor):
  actor.stop_navigation('DONE','Sortie atteinte');actor.cache_snapshot(False);first=actor.snapshot()['remaining']
  time.sleep(.03);actor.cache_snapshot(False)
  assert 49<first<51 and actor.snapshot()['remaining']==first
+
+
+def test_without_slam_initializes_from_odometry_and_never_starts_slam(actor,monkeypatch):
+ actor.odom_pose=(1.,2.,.5);actor.odom_received=time.monotonic();monkeypatch.setattr(actor,'ros',lambda fn,timeout=4:fn())
+ result=actor.start_local()
+ assert result['success'] and actor.mode=='local' and actor.confirmed and actor.slam_process is None
+ assert actor.local_origin==(1.,2.,.5) and actor.local_view is not None and actor.pub is None
+ assert actor.zone==[-3.5,-3.5,3.5,3.5]
+
+
+def test_direct_goal_requires_only_destination_but_a_full_mission_needs_three_points(actor,monkeypatch):
+ import numpy as np
+ from urmc_core.enclosure_map import Grid
+ actor.grid=Grid(np.zeros((80,100)),.04,(-1.,-1.,0.));actor.zone=[-.5,-.5,2.5,2.];actor.map_id='local';actor.mode='local';actor.confirmed=True;actor.route={'exit':[1.,0.]};actor.pose=(0.,0.,0.)
+ monkeypatch.setattr(actor,'sensors',lambda:(True,'test'))
+ with pytest.raises(ValueError):actor.run_navigation('local','enclosure')
+ actor.run_navigation('local','goal')
+ assert actor.active and actor.phase=='GOAL' and actor.task=='goal' and actor.entered is not None
+
+
+def test_camera_assistance_is_opt_in_and_releasable(actor):
+ assert actor.camera_sub is None and not actor.camera_enabled and actor.camera_state()['allowed']
+ actor.set_camera({'enabled':True});assert actor.camera_sub is not None and not actor.camera_state()['allowed']
+ actor.set_camera({'enabled':False});assert actor.camera_sub is None and actor.camera_state()['allowed']
+
+
+def test_no_slam_view_export_has_no_fake_pose_graph(actor,monkeypatch):
+ import numpy as np
+ from urmc_core.enclosure_map import Grid
+ actor.grid=Grid(np.zeros((80,80)),.04,(-1.,-1.,0.));actor.mode='local';actor.map_id='view';actor.route={'exit':[1.,0.]};actor.zone=[-.8,-.8,2.,2.]
+ result=actor.save_map({'map_id':'view','name':'vue_locale'})
+ folder=actor.store.folder(result['name'])
+ assert (folder/'map.pgm').exists() and not (folder/'slam.posegraph').exists()
+ grid,meta=actor.store.load(result['name']);assert meta['navigation_mode']=='local'
+ assert actor.store.list()[0]['has_graph'] is False

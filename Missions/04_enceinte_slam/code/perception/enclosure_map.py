@@ -30,9 +30,13 @@ class Grid:
         return cv2.imencode('.png',np.flipud(pixels))[1].tobytes()
 
 
-def astar(grid,start,goal,radius=.12,points=(),limit=150000):
+def astar(grid,start,goal,radius=.12,points=(),limit=150000,allow_start=False):
     blocked=grid.blocked(radius,points);a,b=grid.cell(*start),grid.cell(*goal)
-    if not grid.inside(a) or not grid.inside(b) or blocked[a[1],a[0]] or blocked[b[1],b[0]]:return []
+    if not grid.inside(a) or not grid.inside(b):return []
+    # Only the local-odometry caller may permit a known-free start cell whose
+    # inflated raster is conservative; current metric scan clearance is required.
+    if allow_start and grid.data[a[1],a[0]]==0 and all(math.dist(start,p)>radius for p in points):blocked[a[1],a[0]]=False
+    if blocked[a[1],a[0]] or blocked[b[1],b[0]]:return []
     heap=[(0.,0.,a)];cost={a:0.};parent={};count=0
     while heap and count<limit:
         _,g,u=heapq.heappop(heap)
@@ -91,7 +95,7 @@ def validate_route(route,grid,radius=.12):
     return {key:[float(v) for v in point] for key,point in route.items()}
 
 
-def plan_goal(grid,start,goal,radius,points=(),allow_nearby=False):
+def plan_goal(grid,start,goal,radius,points=(),allow_nearby=False,allow_start=False):
     candidates=[goal]
     if allow_nearby:
         for distance in (.15,.25):
@@ -100,7 +104,7 @@ def plan_goal(grid,start,goal,radius,points=(),allow_nearby=False):
     for target in candidates:
         cell=grid.cell(*target)
         if not grid.inside(cell) or clearance[cell[1],cell[0]]:continue
-        path=astar(grid,start,target,radius,points)
+        path=astar(grid,start,target,radius,points,allow_start=allow_start)
         if path:return path,target
     return [],goal
 

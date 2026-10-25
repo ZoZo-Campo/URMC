@@ -14,7 +14,7 @@ URMC — COMMENCER ICI
 
 4. Choisir :
    PILOTER : activer le manuel, puis maintenir une flèche.
-   MISSIONS : suivi robuste, piste + barrière ou mission 3 priorité à droite.
+   MISSIONS : suivi, barrière, priorité à droite, ou 04 pour l’enceinte.
    SIMULATIONS : les cinq missions sur le Mac, sans commander le robot.
    REGLAGES : vitesse, correction de direction, couleurs, barrière et distances de priorité à droite.
 
@@ -73,7 +73,7 @@ Une fois, dans le Terminal SSH du robot :
 bash ~/urmc_essais_20261020/kit_robot/installer_mission4.sh
 Puis Connecter / préparer dans la console.
 
-1. Missions → 04 → Préparer la mission 4 → Créer une nouvelle carte.
+1. Missions → 04 → Préparer la mission 4 → Avec SLAM → Créer une nouvelle carte.
 2. Prendre les commandes, parcourir l’entrée, l’intérieur et la sortie ; STOP.
 3. Sur la carte : dessiner la zone autorisée, puis placer entrée / intérieur / sortie.
    Inclure le parcours, exclure un détour autour des parois par l’extérieur.
@@ -85,7 +85,25 @@ Puis Connecter / préparer dans la console.
 
 Les obstacles ajoutés après cartographie sont pris en compte par les scans actuels.
 Le chrono de 60 s démarre au repère d’entrée. Aucun passage sûr : arrêt.
-La navigation n’utilise jamais la caméra ; retour opérateur optionnel hors épreuve.
+Le LiDAR reste analysé : nouveaux obstacles bloqués, obstacles disparus confirmés par scans libres.
+Pour l’épreuve officielle : vidéo ET assistance caméra désactivées.
+
+POUR CHOISIR UNE ARRIVEE
+Etape 2 → Aller directement au point d’arrivée → Choisir mon arrivée → clic sur la carte.
+Le robot vise ce point exact ; s’il n’y a aucun passage, il attend à l’arrêt.
+Le trajet direct a une limite de 60 s depuis le départ.
+
+POUR ESSAYER SANS SLAM
+Navigation → Sans SLAM → Activer / recommencer sans SLAM, robot à l’arrêt.
+Attendre les scans → choisir l’arrivée dans une zone libre observée à moins de 3 m du départ.
+Vérifier la zone autorisée → Aller à mon arrivée avec moteurs.
+Pas de carte à recharger ni de pose SLAM à confirmer. La position peut dériver.
+Une vue locale exportée sert à consulter ; elle ne permet pas de se relocaliser.
+
+CAMERA HORS COMPETITION
+Retour vidéo et assistance caméra se cochent séparément, robot à l’arrêt.
+L’assistance surveille la qualité d’image et les changements à l’arrêt ; elle peut faire une pause.
+Elle ne reconnaît pas les obstacles et ne mesure pas leur distance : cela reste le rôle du LiDAR.
 
 Pour essayer sur le Mac : préparer une fois Code/tools/preparer_slam_mac.command,
 puis Missions → 04 → Essayer sur le Mac → Démarrer mon entraînement.
