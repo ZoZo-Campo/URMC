@@ -23,7 +23,8 @@ def test_overlay_and_stale_frame_rejection():
    output=cv2.imdecode(np.frombuffer(response.read(),np.uint8),1)
    assert response.headers['X-Frame-Sequence']=='1'
    assert float(response.headers['X-Source-Age'])<.5
-   assert output[185:205,153:168,1].max()>180 # green centre annotation
+   assert output.shape==(360,640,3)
+   b,g,r=cv2.split(output.astype(float));assert ((g>150)&(g>1.5*r)&(g>1.5*b)).sum()>30 # actual lane annotation
   time.sleep(.8)
   with pytest.raises(urllib.error.HTTPError) as exc:urllib.request.urlopen(url+'/frame.jpg')
   assert exc.value.code==503
@@ -52,3 +53,19 @@ def test_permanent_camera_follows_mission_and_survives_stop():
    node.mission_status(key,String(data='{"state":"DONE"}'))
   assert node.count_publishers('/cmd_vel')==0
  finally:node.destroy_node();rclpy.shutdown()
+
+
+def test_lidar_monitor_freshness_and_full_resolution():
+ import math,json
+ from sensor_msgs.msg import LaserScan
+ rclpy.init();node=Viewer('/video_test',False,'/unused','auto')
+ server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(node,PAGE));threading.Thread(target=server.serve_forever,daemon=True).start()
+ try:
+  m=LaserScan();m.header.stamp=node.get_clock().now().to_msg();m.angle_min=-math.pi;m.angle_increment=math.pi/180;m.range_min=.05;m.range_max=3.5;m.ranges=[.5]*360
+  node.scan(m)
+  with urllib.request.urlopen(f'http://127.0.0.1:{server.server_port}/lidar.json') as response:data=json.load(response)
+  assert data['fresh'] and len(data['points'])==360
+  assert data['right']==pytest.approx(.5) and node.count_publishers('/cmd_vel')==0
+  time.sleep(.45);assert not node.lidar_snapshot()['fresh']
+  m.header.stamp.sec-=30;node.scan(m);assert not node.lidar_snapshot()['fresh']
+ finally:server.shutdown();server.server_close();node.destroy_node();rclpy.shutdown()

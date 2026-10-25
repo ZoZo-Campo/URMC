@@ -1,62 +1,78 @@
-# URMC — Robotique mobile autonome
+# URMC — TurtleBot3, ROS 2 et préparation de compétition
 
-Préparation à la compétition **URMRC 2026 / Robohub**, avec un **TurtleBot3 Burger et ROS 2 Humble**. Les épreuves demandent de suivre une piste, franchir une barrière, gérer une priorité, sortir d’une enceinte et transporter une palette. Les documents officiels fournis à l’équipe sont conservés dans [docs/documents](docs/documents) ; ce dépôt n’est pas une publication des organisateurs.
+Ce projet prépare des TurtleBot3 à cinq épreuves de robotique mobile : suivre une piste, franchir une barrière, appliquer la priorité à droite, traverser une enceinte avec obstacles et transporter une palette. Les documents de la rencontre URRMC 2026 sont dans [docs/documents](docs/documents).
 
-## Lancer depuis le Mac
+Une seule interface sur le Mac permet de sélectionner le robot, ouvrir son Terminal SSH, préparer les programmes, piloter manuellement, lancer les missions et consulter les capteurs. Les programmes ROS 2 commandant les moteurs s’exécutent sur le robot.
 
-Après [installation](docs/INSTALLATION.md), ouvrir `OUVRIR URMC.command`, ou utiliser un Terminal dans le dossier du dépôt :
+## Démarrer
 
-```bash
-python3 tools/mac_robot.py video        # caméra seule, sans roulage
-python3 tools/mac_robot.py follow       # un essai de suivi de piste
-python3 tools/mac_robot.py barrier-run  # suivi avec arrêt/reprise à la barrière
-python3 tools/mac_robot.py stop         # arrêter les missions
-```
+Double-cliquer **OUVRIR URMC.command**, puis ouvrir [la console locale](http://127.0.0.1:8090/). Garder sa fenêtre Terminal ouverte. Choisir le robot et **Connecter / préparer** ; aucun mouvement n’est lancé par la connexion. Les moteurs démarrent uniquement avec le manuel ou le lancement d’une mission.
 
-**Vidéo permanente : http://127.0.0.1:8080/**. Elle reste accessible après l’arrêt d’une mission. Les raccourcis créent le tunnel SSH automatiquement ; le robot doit rester allumé et joignable. Relancer la vidéo après un redémarrage du robot. Le bouton STOP agit sur la mission active.
+**STOP.command** ou les boutons STOP demandent l’arrêt. Les étapes de compétition sont dans [JOUR COMPETITION.txt](JOUR%20COMPETITION.txt).
 
-La procédure courte est dans [JOUR COMPETITION.txt](JOUR%20COMPETITION.txt). Les lancements de roulage commencent à commander les moteurs lorsque leurs conditions sont remplies. Ne pas lancer deux contrôleurs simultanément.
+| Mission | Dossier et code | État |
+|---|---|---|
+| 1 · Suivi de piste | [01_suivi_de_piste](Missions/01_suivi_de_piste/) | Pilotes caméra et banc ROS ; anciennement mission 0 |
+| 2 · Barrière bleue | [02_barriere](Missions/02_barriere/) | Suivi, arrêt et reprise ; réglages caméra à vérifier sur place |
+| 3 · Priorité à droite | [03_priorite_a_droite](Missions/03_priorite_a_droite/) | LiDAR, traversée sans lignes et maintien de cap ; essais matériels restants |
+| 4 · Enceinte / SLAM | [04_enceinte_slam](Missions/04_enceinte_slam/) | Cartographie, cartes enregistrées et navigation avec obstacles ; banc SLAM validé |
+| 5 · Palette | [05_stockage](Missions/05_stockage/) | Simulation ; perception réelle et pilote de l’aimant manquants |
 
-## Missions et état réel
+Chaque dossier de mission contient un README, son raccourci, son code et, lorsqu’ils existent, les liens vers ses tests. Les règles utiles sont intégrées au README. Le code spécifique n’est pas dupliqué.
 
-| Package | Objectif | État |
-| --- | --- | --- |
-| [01 — Suivi de piste](src/urmc_mission_01) | Suivre les deux bordures et s’arrêter au marqueur | Suivi avec virage observé sur robot ; damier et STOP réels restent à valider |
-| [02 — Barrière](src/urmc_mission_02) | S’arrêter devant la barrière bleue et reprendre le suivi après ouverture | Enchaînement suivi/arrêt/reprise observé avec moteurs ; robustesse encore en réglage |
-| [03 — Priorité](src/urmc_mission_03) | Céder le passage à droite | Prototype simulé ; traversée tout droit seulement |
-| [04 — Enceinte LiDAR](src/urmc_mission_04) | Éviter les obstacles et sortir | Prototype réactif testé en simulation simple |
-| [05 — Stockage](src/urmc_mission_05) | Prendre, transporter et déposer une palette | Simulation ; perception, préhension et calibration matérielles à intégrer |
-
-Le suivi est parfois appelé **mission 0** dans les fichiers de l’équipe ; son package ROS reste `urmc_mission_01`. Chaque package contient ses sources, paramètres et règles.
-
-Les scripts réellement lancés depuis le menu sont dans `kit_robot/`. Ils sont distincts des contrôleurs standard des packages :
-
-- `suivi_piste_camera.py` : deux bordures jaune/blanche obligatoires, leur côté peut être inversé ; maximum 5 cm/s, un essai limité à 90 s.
-- `mission_barriere.py` : observation par défaut ; `--run` suit la piste avant et après la barrière, maximum 5 cm/s, sans limite de durée par défaut. Barrière horizontale = fermée, verticale = levée. Fin au damier ou arrêt demandé. Une vue ambiguë ou une piste perdue provoque une pause ; reprise après confirmation. Les deux bordures restent obligatoires.
-- `retour_video.py` : caméra JPEG compressée, annotations et raison des pauses, dernières images demandées successivement pour éviter une longue file vidéo.
-
-Ces scripts expérimentaux n’assurent pas l’évitement des obstacles au LiDAR. Le contrôleur standard exige, lui, des secteurs LiDAR suffisamment couverts. Ses zéros ne sont jamais interprétés comme de l’espace libre. La mission standard 02 conserve son scénario de passage limité ; le script expérimental poursuit le suivi après la barrière.
-
-## Organisation
+## Où sont les fichiers ?
 
 ```text
-src/           Les six packages ROS 2 : socle commun et cinq missions
-kit_robot/     Scripts réels, pilotes et retour vidéo
-tools/         Menu Mac, transfert, simulateur et validations
-tests/         Tests de perception, logique et serveur vidéo
-docs/          Installation, utilisation, interfaces et documents de compétition
+Missions/                 Une épreuve par dossier
+  01_suivi_de_piste/
+  02_barriere/
+  03_priorite_a_droite/
+  04_enceinte_slam/
+  05_stockage/
+    README.md             Utilisation, état et règles
+    OUVRIR.command        Accès à l’interface
+    code/                 Package ROS 2, scripts et perception
+kit_robot/                Superviseur, vidéo, manuel et points d’entrée stables
+tools/console/            Interface web commune
+tools/                    Préparation, conteneurs et vérifications
+src/urmc_core/            Socle ROS 2 commun
+src/urmc_mission_XX        Liens de compatibilité vers les packages des missions
+tests/                    Suite de tests unique
+docs/                     Console, interfaces ROS et validation
+docs/documents/           Les trois PDF de référence
 ```
 
-## Simulation et validation
+Sur le Bureau, `Missions` et `Documents` ouvrent directement les dossiers correspondants de `Code`. `Code` est l’unique copie Git active. Les anciennes copies et références sont archivées séparément ; elles ne sont pas nécessaires au lancement.
 
-Simuler une mission sur le Mac : `bash tools/mac.sh 01` (remplacer `01` par `02` à `05`). Interface : http://127.0.0.1:8765/. Les simulations utilisent Docker/Colima et un modèle 2D simplifié, pas Gazebo ni le parcours officiel.
+## Préparation et matériel
 
-La validation du 22 octobre comprend **96 tests unitaires** et un scénario ROS du script barrière, avec les vitesses remappées sur un topic de test en réseau Docker isolé. Il vérifie les arrêts, reprises, pertes de capteurs et limites de vitesse. Les essais matériels ont révélé des détections instables ; les derniers correctifs doivent encore être validés sur tout le parcours. Voir [VALIDATION.md](docs/VALIDATION.md).
+Robot 11 : `192.168.42.211`, domaine ROS proposé 41. Robot 9 : `192.168.42.209` à confirmer, domaine proposé 39. Les domaines des pilotes sont vérifiés lors de la préparation ; ils doivent être distincts. L’accès SSH par clé est nécessaire à la préparation automatique. Aucun mot de passe ni jeton n’est publié.
 
-## Références
+Pour le SLAM, transférer d’abord les fichiers avec **Connecter / préparer**, puis exécuter sur le robot :
 
-- [Tutoriel pédagogique TurtleBot3 line following](https://github.com/loiccu/turtlebot3_line_following).
-- Documents de compétition et TP fournis à l’équipe, avec les mentions de leurs auteurs.
-- Packages TurtleBot3 de ROBOTIS.
+```bash
+bash ~/urmc_essais_20261020/kit_robot/installer_mission4.sh
+```
 
-Les PDF restent la propriété de leurs auteurs.
+Repréparer ensuite le robot et suivre le [guide de la mission 4](Missions/04_enceinte_slam/README.md). Les cartes réelles et réglages locaux sont exclus de Git.
+
+Les simulations fonctionnent sur le Mac avec Docker/Colima. Le banc SLAM utilise `urmc-slam:local`, préparé par `tools/preparer_slam_mac.command`. Les anciennes simulations utilisent `urmc-humble:local`. Le banc est isolé des topics matériels.
+
+## Développement
+
+Sur Ubuntu avec ROS 2 Humble :
+
+```bash
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+python3 -m pytest
+```
+
+Les anciens chemins `kit_robot/suivi_piste_camera.py`, `mission_barriere.py` et les autres points d’entrée restent disponibles. Les liens sont suivis lors des transferts : le robot reçoit un workspace autonome, sans dépendre du Mac.
+
+- [Interfaces et conventions ROS](docs/INTERFACES.md)
+- [Architecture de la console](docs/CONSOLE.md)
+- [Validation et limites connues](docs/VALIDATION.md)
+
+Une réussite en simulation ne remplace pas les essais physiques : vérifier les capteurs, le gabarit, les seuils, les marges et la localisation sur le terrain réel.

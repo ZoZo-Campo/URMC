@@ -69,3 +69,23 @@ Par défaut, `sim.launch.py` attend Démarrer. `autostart:=true` est réservé a
 La mission 1 exige désormais `/odom` frais, y compris pour le suivi simple, afin de pouvoir effectuer son détour local. Les bandes sont analysées dans la caméra ; le contrôleur ne reçoit pas la carte du simulateur. Une bordure seule est estimée pendant au plus 8 secondes à partir de la largeur observée auparavant. Deux bordures absentes déclenchent un balayage sur place, limité à 18 secondes, puis TIMEOUT. Trois images distinctes sont nécessaires pour reprendre après une recherche.
 
 Un obstacle détecté à moins de 42 cm déclenche un détour de 32 cm latéralement puis 72 cm vers l’avant, si un côté paraît assez libre. Les distances sont relatives à la pose mesurée au début de la manœuvre, pas à la carte simulée. Le LiDAR et le garde de commande restent actifs ; un obstacle trop proche arrête le mouvement. Il s’agit d’une manœuvre locale pour un petit obstacle isolé, pas d’un planificateur général. Vérifier les dimensions, les limites du parcours et l’autorisation de quitter la piste avant un essai réel.
+
+## Pilote caméra / LiDAR de la console — mission 3
+
+`kit_robot/mission_priorite.py` utilise les topics absolus `/image_raw/compressed`, `/scan`, `/odom`, `/cmd_vel` ; QoS capteurs BEST_EFFORT, KEEP_LAST profondeur 1. Les en-têtes et délais de réception doivent être récents : caméra <250 ms, LiDAR/odom <300 ms. Les secteurs avant et droit doivent être couverts ; `+inf` signifie libre jusqu’à range_max, les mesures invalides ne signifient pas libre.
+
+`/urmc/priority/status` publie le mode, l’état, la raison, les vitesses, les distances avant/droite, les cibles suivies (`id`, x/y relatifs, gabarit, distance LiDAR–cible, vitesse d’approche, état retenu) et la progression de traversée. `/urmc/priority/stop` et `/urmc/camera_follow/stop` (Trigger) arrêtent le pilote de roulage. L’observation ne publie aucun Twist. Le retour vidéo écoute cet état ; sa carte permanente lit `/scan` en lecture seule.
+
+Le pilote de console se met en pause dès qu’un capteur manque ; après retour de tous les capteurs, la libération de la voie est confirmée à nouveau avant de poursuivre la traversée. Le cap d’origine n’est pas recalé pendant la pause. Un saut d’odométrie, une déviation excessive ou une distance de traversée dépassée terminent l’essai. Ce comportement de reprise est distinct du désarmement du lanceur ROS générique décrit plus haut.
+
+Dans les réglages de console, l’orientation LiDAR est en degrés. Le paramètre ROS du lanceur générique `scan_yaw_offset` reste en radians. Le modèle suppose le LiDAR proche du centre du robot ; il ne remplace pas une transformation TF complète.
+
+## Mission 4 cartographiée — console
+
+Le worker `mission_enceinte.py` lit `/scan`, `/odom`, `/map`, TF `map→base_footprint` et `base_footprint→frame_du_scan`, et `/battery_state` si disponible. Aucun abonnement Image/CompressedImage dans ce pilote. Un publisher `/cmd_vel` n’existe que pendant le roulage supervisé ; STOP publie zéro, le détruit et libère les verrous partagés. Le SLAM peut continuer à fonctionner sans moteur.
+
+Les mutations passent par le jeton privé de l’agent puis localhost:8093. Nom de carte validé, sauvegardes horodatées, graphes et métadonnées séparés ; pas de chemin libre fourni par le navigateur. Les commandes pose/zone/repères/roulage portent l’identifiant de session de carte et sont refusées s’il a changé. La pose doit être confirmée après rechargement.
+
+La planification emploie la carte gelée en localisation, la zone autorisée, l’empreinte avec marge et les points LiDAR actuels. Les cellules inconnues restent bloquées. Le contrôle à 20 Hz vérifie les scans/odom <300 ms, TF récent, conflit de publisher et collision sur un court horizon ; le calcul A* se fait dans un thread séparé et n’immobilise pas ce contrôle. Une perte de capteur met la vitesse à zéro ; sa réception à nouveau permet une reprise tant que la mission et son délai restent valides. Saut de localisation ou délai de 60 s : essai terminé.
+
+Le banc SLAM utilise les mêmes conventions sous `/urmc_sim/m04_slam/*` et des topics TF remappés, jamais un publisher de vitesse matériel. La carte de simulation et ses graphes ne sont pas réutilisables comme carte réelle.

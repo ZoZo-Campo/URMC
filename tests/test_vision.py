@@ -19,7 +19,10 @@ def test_barrier_pixels():assert analyze(scene(.4,0,0,2,5))['barrier']
 
 def test_open_barrier_pixels():assert not analyze(scene(.4,0,0,2,10))['barrier']
 
-def test_intersection_pixels():assert analyze(scene(.4,0,0,3,5))['intersection']
+def test_intersection_widens_then_has_no_lines():
+    approach=analyze(scene(.2,0,0,3,5));entry=analyze(scene(.4,0,0,3,5))
+    assert entry['lane_width']>1.4*approach['lane_width']
+    assert not analyze(scene(.8,0,0,3,5))['lane_valid']
 
 def test_stop_shape_candidate():assert analyze(scene(2.5,0,0,1,0,'stop'))['stop']
 

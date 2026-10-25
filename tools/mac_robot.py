@@ -31,13 +31,13 @@ def open_when_ready(port):
 
 STOP='''import os,signal
 from pathlib import Path
-names={'suivi_piste_camera.py','mission_barriere.py'}
+names={'suivi_piste_camera.py','mission_barriere.py','mission_priorite.py','mission_enceinte.py','teleop_robot.py'}
 count=0
 for p in Path('/proc').iterdir():
  if not p.name.isdigit():continue
  try:
   if p.stat().st_uid!=os.getuid():continue
-  args=p.joinpath('cmdline').read_bytes().decode().split('\\0')
+  args=p.joinpath('cmdline').read_bytes().decode().split(chr(0))
   if any(Path(a).name in names for a in args if a):os.kill(int(p.name),signal.SIGINT);count+=1
  except (FileNotFoundError,ProcessLookupError,PermissionError):pass
 print('Arret demande a',count,'mission(s).')
@@ -46,7 +46,7 @@ print('Arret demande a',count,'mission(s).')
 def install():
     print('Transfert des sources puis compilation sur le robot. Aucun mouvement.',flush=True)
     with tempfile.TemporaryFile() as stream:
-        with tarfile.open(fileobj=stream,mode='w:gz') as archive:
+        with tarfile.open(fileobj=stream,mode='w:gz',dereference=True) as archive:
             def clean(info):
                 if '__pycache__' in info.name or info.name.endswith(('.pyc','.DS_Store')):return None
                 info.mtime=0
@@ -54,7 +54,7 @@ def install():
             for folder in ('src','kit_robot'):archive.add(ROOT/folder,arcname=folder,filter=clean)
         stream.seek(0)
         remote('mkdir -p "$HOME/'+REMOTE+'" && tar --no-same-owner -xzf - -C "$HOME/'+REMOTE+'"',stdin=stream)
-    build='set -e; source /opt/ros/humble/setup.bash; if [[ -f "$HOME/turtlebot3_ws/install/setup.bash" ]]; then source "$HOME/turtlebot3_ws/install/setup.bash"; fi; cd "$HOME/'+REMOTE+'"; colcon build --symlink-install --event-handlers console_direct+ status- --packages-select urmc_core urmc_mission_01 urmc_mission_02'
+    build='set -e; source /opt/ros/humble/setup.bash; if [[ -f "$HOME/turtlebot3_ws/install/setup.bash" ]]; then source "$HOME/turtlebot3_ws/install/setup.bash"; fi; cd "$HOME/'+REMOTE+'"; colcon build --symlink-install --event-handlers console_direct+ status- --packages-select urmc_core urmc_mission_01 urmc_mission_02 urmc_mission_03 urmc_mission_04'
     remote('bash -c '+shlex.quote(build),tty=True)
 
 def choose():

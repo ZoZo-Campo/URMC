@@ -11,6 +11,8 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import String, Bool
 from std_srvs.srv import SetBool, Trigger
 from .control import Brain, guard, scan_features
+from .priority import priority_scan,RightTrafficTracker
+from .operator_settings import DEFAULTS
 
 
 class MissionNode(Node):
@@ -28,10 +30,10 @@ class MissionNode(Node):
             raise ValueError('Simulation obligatoire sous /urmc_sim/<mission>')
         if not 0<self.param('speed')<=.1 or not 0<self.param('timeout')<=.5:
             raise ValueError('Vitesse ou timeout hors des limites du prototype')
-        self.brain=self.new_brain();self.armed=False
+        self.brain=self.new_brain();self.armed=False;self.traffic_tracker=RightTrafficTracker();self.priority_traffic=None
         self.sim_session=None;self.sim_pending=False
         if self.param('simulation'):self.create_subscription(String,'sim_session',self.on_session,1)
-        self.scan=None;self.vision={};self.pose=None;self.events={};self.received={}
+        self.scan=None;self.scan_id=None;self.vision={};self.pose=None;self.events={};self.received={}
         self.have_fresh=False;self.distance=0.;self.previous_pose=None;self.lidar_barrier_seen=False
         self.pub=self.create_publisher(Twist,'cmd_vel',1)
         self.status=self.create_publisher(String,'status',10)
@@ -58,7 +60,7 @@ class MissionNode(Node):
         if previous is None or data['epoch']!=previous['epoch']:
             self.armed=False;self.brain=self.new_brain();self.distance=0.;self.previous_pose=None
             self.received={};self.scan=None;self.vision={};self.events={};self.pose=None
-            self.have_fresh=False;self.lidar_barrier_seen=False
+            self.have_fresh=False;self.lidar_barrier_seen=False;self.traffic_tracker=RightTrafficTracker();self.priority_traffic=None
         if previous is None or data['revision']!=previous['revision']:
             self.sim_pending=data['running']
         self.sim_session=data;self.received['session']=time.monotonic()
@@ -77,6 +79,11 @@ class MissionNode(Node):
             if not self.valid_header(msg) or msg.angle_increment<=0 or not msg.ranges:
                 self.received.pop('scan',None);return
             self.scan=scan_features(msg.ranges,msg.angle_min+self.param('scan_yaw_offset'),msg.angle_increment,msg.range_min,msg.range_max,compute_heading=self.mission==4)
+            self.scan_id=(msg.header.stamp.sec,msg.header.stamp.nanosec)
+            if self.mission==3:
+                cfg=dict(DEFAULTS,scan_yaw_offset=math.degrees(self.param('scan_yaw_offset')))
+                self.scan.update(priority_scan(msg.ranges,msg.angle_min,msg.angle_increment,msg.range_min,msg.range_max,cfg))
+                self.priority_traffic=self.traffic_tracker.update(msg.ranges,msg.angle_min,msg.angle_increment,msg.range_min,msg.range_max,self.pose,time.monotonic(),self.scan_id,cfg)
             self.received['scan']=time.monotonic()
         except (ValueError,TypeError):self.received.pop('scan',None)
 
@@ -165,7 +172,10 @@ class MissionNode(Node):
         if self.param('simulation') and (not self.sim_session or not self.sim_session['running']):self.armed=False
         o=dict(self.events if self.mission==5 else self.vision)
         o.update(self.scan or {});o.update(fresh=fresh,x=self.distance,pose=self.pose,
-            route_confirmed=self.param('route')=='straight',storage_calibrated=self.param('storage_calibrated'))
+            route_confirmed=self.param('route')=='straight',storage_calibrated=self.param('storage_calibrated'),scan_id=self.scan_id)
+        if self.mission==3:
+            o['traffic']=self.priority_traffic
+            o['entry_eligible']=o.get('yellow_x') is None and o.get('white_x') is None
         if self.mission==2:
             if fresh and o.get('barrier') and (o.get('front') or 0)<.6:self.lidar_barrier_seen=True
             o['barrier_clear']=bool(self.lidar_barrier_seen and o.get('barrier_clear') and o.get('lane_valid'))
@@ -175,7 +185,9 @@ class MissionNode(Node):
         msg=Twist();msg.linear.x=float(command.v);msg.angular.z=float(command.w);self.pub.publish(msg)
         self.magnet.publish(Bool(data=bool(self.brain.magnet)))
         self.status.publish(String(data=json.dumps(dict(mission=self.mission,state=self.brain.state,
-            armed=self.armed,fresh=fresh,v=command.v,w=command.w,magnet=self.brain.magnet))))
+            armed=self.armed,fresh=fresh,v=command.v,w=command.w,magnet=self.brain.magnet,
+            **(dict(right=(self.scan or {}).get('right'),front=(self.scan or {}).get('front'),traffic=self.priority_traffic,
+                    reason=self.brain.reason,crossing_distance=self.brain.progress,crossing_max=DEFAULTS['priority_cross_max']) if self.mission==3 else {})))))
 
 
 def run(mission):

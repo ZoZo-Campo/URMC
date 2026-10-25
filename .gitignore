@@ -1,20 +1,29 @@
 build/
 install/
 log/
+resultats/
+livraison/
+session_console/
+session_robot11/
 __pycache__/
 *.py[cod]
-.pytest_cache/
+*.log
+*.jsonl
 .DS_Store
-*.bag
-*.db3
-*.mcap
 .env
 *.pem
 *.key
+.console_token
 
-resultats/
-livraison/
-session_robot11/
+# Cartes enregistrées et graphes SLAM propres aux robots
+cartes/
+session_m04_maps/
+
+# Données privées ou générées, y compris de futurs profils de robots
+session_*/
 archives/
-*.log
-*.jsonl
+*.bag
+*.db3
+*.mcap
+*.posegraph
+.console_token

@@ -1,3 +1,3 @@
 #!/bin/zsh
 cd -- "${0:A:h}" || exit 1
-exec /usr/bin/env python3 tools/mac_robot.py stop
+exec /usr/bin/env python3 tools/stop_robots.py

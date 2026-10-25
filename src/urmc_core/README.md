@@ -1,10 +1,7 @@
-# Socle commun ROS 2
+# Socle ROS 2 commun
 
-- `node.py` : abonnements, fraîcheur, armer/désarmer, publication Twist.
-- `control.py` : commandes bornées, secteurs LiDAR, recherche de corridor et primitives de déplacement.
-- `vision.py` : HSV et heuristiques de marqueurs, sans modèle appris.
-- `sim.py` : cinématique 2D, images et rayons LiDAR synthétiques ; observations de stockage issues de la vérité du simulateur.
-- `launching.py` : paramètres et remappings communs aux cinq lanceurs.
-- `dashboard.py` et `web/index.html` : visualisation et contrôles réservés au simulateur.
+`urmc_core` contient les adaptateurs ROS, le simulateur, les contrôles communs, le tableau de bord et les réglages partagés. Les modules spécifiques barrière, priorité et grille de l’enceinte sont accessibles ici par des liens vers leurs dossiers de mission, sans copie de code.
 
-Les décisions de chaque mission sont dans le package `urmc_mission_XX`, fichier `logic.py`. Un seul nœud de mission commande la base à la fois. Voir les guides à la racine du workspace.
+Les packages des missions se trouvent dans `../../Missions/` ; `src/urmc_mission_XX` reste un chemin de compatibilité pour colcon et les outils. Les transferts et les conteneurs matérialisent les liens.
+
+Voir `../../docs/INTERFACES.md` pour les topics et `../../docs/VALIDATION.md` pour l’état des essais.

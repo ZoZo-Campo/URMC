@@ -75,3 +75,35 @@ def test_absence_without_any_opening_does_not_restart():
     gate=OpeningGate(allow_disappearance=True)
     gate.update(dict(position='CLOSED',visible=True),0,0)
     for i in range(1,30):assert not gate.update(dict(position='UNKNOWN',visible=False),i*.1,i)
+
+
+def test_largest_blue_surface_is_selected_and_area_is_reported():
+ image=np.full((240,320,3),65,np.uint8)
+ cv2.rectangle(image,(30,80),(190,110),(240,70,20),-1)
+ cv2.rectangle(image,(260,60),(272,120),(240,70,20),-1)
+ result=detect(image)
+ assert result['position']=='CLOSED'
+ assert result['selected_index']==1 and result['selection']=='largest_area'
+ assert result['objects'][0]['area']>result['objects'][1]['area']
+ assert result['area_percent']==pytest.approx(result['area']*100/(320*240),abs=.01)
+
+
+def test_large_unorientable_blob_cannot_be_replaced_by_a_small_open_rectangle():
+ image=np.full((240,320,3),65,np.uint8)
+ cv2.rectangle(image,(20,60),(120,160),(240,70,20),-1)
+ cv2.rectangle(image,(260,60),(275,150),(240,70,20),-1)
+ result=detect(image)
+ assert result['position']=='UNKNOWN'
+ assert result['area']>9000 and result['selected_index']==1
+ assert annotate(image,result).shape==(240,640,3)
+
+
+def test_area_threshold_filters_small_blue_noise(tmp_path,monkeypatch):
+ import json
+ from urmc_core import operator_settings as settings
+ path=tmp_path/'settings.json';path.write_text(json.dumps(dict(settings.DEFAULTS,blue_area_min=500)))
+ monkeypatch.setenv('URMC_SETTINGS_FILE',str(path));monkeypatch.setattr(settings,'_checked',0.)
+ image=np.full((240,320,3),65,np.uint8)
+ cv2.rectangle(image,(30,40),(60,48),(240,70,20),-1)
+ result=detect(image)
+ assert result['blue_pixels']>80 and result['visible'] is False and result['objects']==[]

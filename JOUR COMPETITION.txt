@@ -1,46 +1,100 @@
-ROBOT 11 — COMMANDES A COPIER SUR LE MAC
+URMC — COMMENCER ICI
 
-1. Allumer le robot. Connecter le Mac au même réseau.
+1. Allumer le ou les robots et connecter le Mac au même réseau.
 
-2. Ouvrir un Terminal et copier :
-cd ~/URMC
-python3 tools/mac_robot.py video
+2. Double-cliquer OUVRIR URMC.command.
+   Garder sa fenêtre Terminal ouverte.
 
-3. Ouvrir cette page et la garder ouverte :
-http://127.0.0.1:8080/
-C’est la vidéo pour toutes les missions, avec le bouton STOP.
+3. Choisir le robot dans la barre latérale :
+   Robot 11 : 192.168.42.211.
+   Robot 9 : 192.168.42.209 proposée, à confirmer.
+   Les adresses sont modifiables dans Réglages → Connexion.
+   Puis cliquer CONNECTER / PREPARER pour le robot sélectionné.
+   La caméra et les programmes sont préparés, sans lancer les moteurs.
 
-4. LANCER SUIVI DE LIGNE + BARRIERE :
-python3 tools/mac_robot.py barrier-run
+4. Choisir :
+   PILOTER : activer le manuel, puis maintenir une flèche.
+   MISSIONS : suivi robuste, piste + barrière ou mission 3 priorité à droite.
+   SIMULATIONS : les cinq missions sur le Mac, sans commander le robot.
+   REGLAGES : vitesse, correction de direction, couleurs, barrière et distances de priorité à droite.
 
-Le robot suit la piste avec les DEUX bordures jaune et blanche visibles.
-Le côté des couleurs peut être inversé.
-Il s’arrête devant la barrière bleue fermée, puis reprend après ouverture confirmée.
-Il continue le suivi après la barrière.
-Vitesse maximale : 5 cm/s. Aucune limite de durée.
-Si une détection est mauvaise, il fait une pause et reprend quand elle est confirmée.
-La raison de la pause apparaît au-dessus de la vidéo.
-Fin au damier, au bouton STOP ou avec Ctrl+C dans le Terminal.
+5. Pour arrêter le robot sélectionné : bouton rouge STOP.
+   STOP TOUS et le raccourci STOP.command demandent l’arrêt des deux robots.
+   En manuel, relâcher la flèche arrête aussi le mouvement.
 
-5. POUR ARRETER :
-Cliquer STOP sur la page vidéo.
-Ou appuyer sur Ctrl+C dans le Terminal de la mission.
+Adresse de l’interface : http://127.0.0.1:8090/
+Elle doit être lancée avec le raccourci pour être accessible.
 
-Si besoin, dans un autre Terminal Mac :
-cd ~/URMC
-python3 tools/mac_robot.py stop
+SSH : bouton « Ouvrir le terminal SSH », en bas de la barre latérale.
+L’accès SSH par clé doit être configuré pour la préparation automatique.
+Ne jamais saisir un mot de passe dans une page web ; utiliser le Terminal.
 
-6. POUR REFAIRE UN ESSAI :
-Replacer le robot, puis relancer :
-python3 tools/mac_robot.py barrier-run
-Ne pas lancer une seconde mission tant que la précédente tourne.
+Le suivi robuste et la barrière n’ont pas de limite de durée.
+Le suivi historique garde sa limite de 90 secondes.
+Les DEUX bordures sont obligatoires, sans imposer le côté des couleurs.
+Mission 3 uniquement : traversée tout droit sans lignes dans la limite réglée.
+La vidéo et la raison des pauses restent visibles pendant les essais.
 
-SUIVI DE LIGNE SEUL, SANS GESTION DE BARRIERE :
-python3 tools/mac_robot.py follow
-Ce mode distinct garde sa limite de 90 secondes.
+OÙ SONT LES FICHIERS ?
+Missions : une épreuve par dossier.
+Documents : PDF du TP et de la compétition.
+Code : unique copie Git ; scripts communs, interface, outils et tests.
+Les anciennes versions sont dans Archives URMC sur le Bureau, hors du dossier de travail.
 
-SI TU ES DEJA EN SSH SUR LE ROBOT :
-python3 ~/urmc_essais_20261020/kit_robot/mission_barriere.py --run
-Pour la vidéo sur le Mac, faire d’abord les étapes 2 et 3 ci-dessus.
+Si le robot n’est pas connecté, la console reste utilisable pour les simulations.
+Les programmes et réglages sont transférés par « Connecter / préparer ».
+Les réglages sont conservés sur le robot. Aucun mouvement n’est lancé par la connexion.
 
-Aucune compilation à refaire : la version corrigée est déjà installée.
+DEUX ROBOTS
+Chaque robot a sa connexion, sa vidéo et ses réglages.
+Changer de robot demande STOP au précédent. STOP TOUS arrête les robots connectés.
+Domaines proposés : 41 pour le 11, 39 pour le 9. Les pilotes sont vérifiés à la connexion.
+Les deux robots doivent utiliser des domaines ROS différents.
+
+VIDEO COMPLETE
+Points jaune/blanc : barycentres ; vert : centre de piste ; cyan : axe caméra.
+À droite : masques jaune, blanc et bleu. B1 : plus grande surface bleue candidate.
+Surface affichée en pixels et en % de l’image ; l’angle et la forme restent contrôlés.
+Réglages → Barrière : seuil de surface minimum et dominance de B1.
+
+MISSION 3 — PRIORITE A DROITE
+Missions → Priorité à droite → Observer caméra + LiDAR.
+Piloter : vérifier la vidéo, la carte LiDAR et les distances au robot.
+Réglages → Priorité à droite : seuil initial 0,80 m, à calibrer.
+Mode distance par défaut ; « Exiger une approche observée » = 1 active le filtre de mouvement.
+Puis Missions → Priorité à droite → Lancer avec moteurs.
+Le robot attend que la voie se libère, traverse au cap mémorisé sans lignes, puis reprend les deux bordures.
+STOP pour terminer. Un seul carrefour par lancement.
+Essais sur le vrai robot encore nécessaires ; le LiDAR seul ne garantit pas la distinction robot/personne.
+
+MISSION 4 — ENCEINTE / SLAM
+D’abord Connecter / préparer pour transférer les nouveaux fichiers.
+Une fois, dans le Terminal SSH du robot :
+bash ~/urmc_essais_20261020/kit_robot/installer_mission4.sh
+Puis Connecter / préparer dans la console.
+
+1. Ouvrir Enceinte / SLAM → Nouveau SLAM.
+2. Activer le manuel, parcourir l’entrée, l’intérieur et la sortie ; STOP.
+3. Sur la carte : dessiner la zone autorisée, puis placer entrée / intérieur / sortie.
+   Inclure le parcours, exclure un détour autour des parois par l’extérieur.
+4. Donner un nom → Enregistrer carte + graphe SLAM. Télécharger le ZIP pour le Mac.
+5. Placer le robot avant l’entrée → choisir la carte → Charger.
+6. Définir sa position sur la carte et tirer vers son avant ; attendre 2 s.
+7. Vérifier les scans et cliquer « La position affichée est correcte ».
+8. Lancer mission 4 avec moteurs. STOP termine l’essai.
+
+Les obstacles ajoutés après cartographie sont pris en compte par les scans actuels.
+Le chrono de 60 s démarre au repère d’entrée. Aucun passage sûr : arrêt.
+La navigation n’utilise jamais la caméra ; retour opérateur optionnel hors épreuve.
+
+Pour essayer sur le Mac : préparer une fois Code/tools/preparer_slam_mac.command,
+puis Enceinte / SLAM → Banc SLAM sur le Mac → Démarrer le banc Mac.
+Même procédure ; « Ajouter les obstacles du banc » teste l’imprévu.
+Cartes du robot : ~/urmc_essais_20261020/cartes/ ; sauvegarde Mac via ZIP.
+Guide détaillé : Missions/04_enceinte_slam/README.md.
+
+RANGEMENT
+01_suivi_de_piste correspond à l’ancienne mission 0.
+Chaque dossier Missions contient son README, son raccourci et son code.
+Les fichiers src et kit_robot sont aussi des chemins de compatibilité : ne pas les dupliquer.
+Après un clonage Git, les outils sont directement sous tools/ ; le dossier cloné correspond à Code.

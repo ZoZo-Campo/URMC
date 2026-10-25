@@ -5,7 +5,7 @@ appelle le service /urmc/camera_follow/stop (std_srvs/srv/Trigger), c'est-a-dire
 l'arrete du prototype de roulage camerise. Ce serveur n'ouvre jamais les moteurs
 lui-meme : il relaie uniquement une demande d'arrete. Bind localhost ; acces par tunnel SSH.
 """
-import argparse,json,threading,time,socket
+import argparse,json,threading,time,socket,os,math
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from std_srvs.srv import Trigger,SetBool
 from std_msgs.msg import String
@@ -13,12 +13,12 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile,ReliabilityPolicy,HistoryPolicy
 LATEST=QoSProfile(depth=1,reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST)
-from sensor_msgs.msg import CompressedImage,Image
+from sensor_msgs.msg import CompressedImage,Image,LaserScan
 
 PAGE='''<!doctype html><html lang="fr"><meta charset="utf-8"><title>URMC — direct robot 11</title>
 <style>body{background:#14251f;color:white;font:18px system-ui;text-align:center;margin:20px}img{width:960px;max-width:96%;max-height:72vh;object-fit:contain}button{padding:16px;border:0;border-radius:8px;cursor:pointer}#stop{background:#c0392b;color:white;font-size:22px}p{min-height:24px}</style>
 <h1>Robot 11 — caméra en direct</h1><p id="mission">Caméra permanente — aucune mission nécessaire</p><p id="state">Connexion…</p><img id="image" alt="Dernière image du robot"><p><button id="stop" onclick="stopMission()">STOP mission</button></p><p id="stopmsg"></p>
-<p>Suivi : points jaune et blanc = barycentres ; point vert = centre de piste ; ligne cyan = axe caméra.<br>Barrière : image annotée à gauche, masque bleu à droite.</p>
+<p>Points jaune/blanc : barycentres. Vert : centre de piste. Cyan : axe caméra.<br>À droite : masques jaune, blanc et bleu. B1 : plus grande surface bleue, avec angle et pourcentage de l’image.</p>
 <script>
 const image=document.querySelector('#image'),state=document.querySelector('#state');
 let previousURL=null,previousSeq=null,lastNew=performance.now();
@@ -52,17 +52,38 @@ class Viewer(Node):
         self.stop_client=self.create_client(Trigger,stop_service)
         self.missions={};self.mission_label='Camera permanente - aucune mission active'
         self.mission_stop_clients={}
+        self.lidar=None
+        self.create_subscription(LaserScan,'/scan',self.scan,LATEST)
         if overlay=='auto':
-            topics={'follow':'/urmc/camera_follow/status','barrier':'/urmc/barrier/status'}
+            topics={'follow':'/urmc/camera_follow/status','barrier':'/urmc/barrier/status','manual':'/urmc/operator/status','priority':'/urmc/priority/status'}
             topics.update({str(i):f'/urmc/m{i:02d}/status' for i in range(1,6)})
             for key,topic_name in topics.items():
                 self.create_subscription(String,topic_name,lambda msg,k=key:self.mission_status(k,msg),1)
-                if key in ('follow','barrier'):
-                    service='/urmc/camera_follow/stop' if key=='follow' else '/urmc/barrier/stop'
+                if key in ('follow','barrier','manual','priority'):
+                    service={'follow':'/urmc/camera_follow/stop','barrier':'/urmc/barrier/stop','manual':'/urmc/operator/stop','priority':'/urmc/priority/stop'}[key]
                     self.mission_stop_clients[key]=(self.create_client(Trigger,service),Trigger.Request())
                 else:
                     req=SetBool.Request();req.data=False
                     self.mission_stop_clients[key]=(self.create_client(SetBool,f'/urmc/m{int(key):02d}/enable'),req)
+    def scan(self,msg):
+        from urmc_core.priority import priority_scan
+        from urmc_core.operator_settings import current
+        stamp=msg.header.stamp.sec+msg.header.stamp.nanosec/1e9
+        age=self.get_clock().now().nanoseconds/1e9-stamp
+        if not 0<=age<.3 or (self.lidar and stamp<=self.lidar['stamp']):return
+        cfg=current();features=priority_scan(msg.ranges,msg.angle_min,msg.angle_increment,msg.range_min,msg.range_max,cfg)
+        # The monitor retains all finite returns at full angular resolution.
+        features['points']=[[round(msg.angle_min+i*msg.angle_increment+math.radians(cfg['scan_yaw_offset']),4),round(r,3)] for i,r in enumerate(msg.ranges) if math.isfinite(r) and msg.range_min<=r<=msg.range_max]
+        features.update(stamp=stamp,received=time.monotonic(),right_start=cfg['priority_right_start'],right_end=cfg['priority_right_end'],right_threshold=cfg['priority_right_distance'],lane_forward=cfg['priority_lane_forward'])
+        with self.lock:self.lidar=features
+    def lidar_snapshot(self):
+        with self.lock:data=dict(self.lidar or {})
+        age=self.get_clock().now().nanoseconds/1e9-data.get('stamp',-math.inf)
+        data['fresh']=0<=age<.4 and 0<=time.monotonic()-data.get('received',-math.inf)<.4
+        data['age']=round(age,3) if math.isfinite(age) else None
+        active=self.active_mission()
+        data['traffic']=active[2].get('traffic') if active and active[0]=='priority' else None
+        return data
     def mission_status(self,key,msg):
         try:data=json.loads(msg.data)
         except (ValueError,TypeError):return
@@ -79,54 +100,36 @@ class Viewer(Node):
         if not active:
             self.mission_label='Camera permanente - aucune mission active';return 'lane'
         key,_,data=active
-        names={'follow':'Suivi de piste','barrier':'Barriere bleue','1':'Suivi de piste','2':'Barriere bleue','3':'Priorite','4':'Enceinte LiDAR','5':'Palette'}
+        names={'manual':'Pilotage manuel','priority':'Priorite a droite','follow':'Suivi de piste','barrier':'Barriere bleue','1':'Suivi de piste','2':'Barriere bleue','3':'Priorite','4':'Enceinte LiDAR','5':'Palette'}
+        if key=='manual':self.mission_label='Pilotage manuel';return 'none'
+        if data.get('algorithm')=='follow-robust':self.mission_label='Suivi robuste - '+str(data.get('state',''));return 'lane'
         state=str(data.get('state',''))
         labels={'WAIT_OPEN':'attente ouverture','WAIT_BARRIER_VIEW':'barriere mal visible','WAIT_LANE':'bordure manquante','WAIT_LANE_OFFSET':'piste trop decalee','CONFIRM_LANE':'confirmation piste','WAIT_CAMERA':'attente camera','WAIT_ODOM':'attente odometrie','FOLLOW':'suivi','FOLLOW_AFTER_BARRIER':'suivi apres barriere'}
         self.mission_label=names[key]+' - '+labels.get(state,state)
         if state in ('WAIT_LANE','WAIT_LANE_OFFSET','CONFIRM_LANE'):self.mission_label+=' - '+str(data.get('lane_reason',''))
-        return 'barrier' if key in ('2','barrier') else 'lane' if key in ('follow','1','3') else 'none'
+        return 'barrier' if key in ('2','barrier') else 'lane' if key in ('follow','1','3','priority') else 'none'
     def save(self,data):
-        with self.lock:self.frame=data;self.received=time.monotonic();self.frames+=1
+        with self.lock:self.frame=data;self.source_stamp=getattr(self,"pending_stamp",None);self.received=time.monotonic();self.frames+=1
     def compressed(self,msg):
         now=time.monotonic()
-        if now-self.last_processed<.075:return
+        if now-self.last_processed<.12:return
         self.last_processed=now
         stamp=msg.header.stamp.sec+msg.header.stamp.nanosec/1e9
         age=self.get_clock().now().nanoseconds/1e9-stamp
         if not 0<=age<.5:return
-        self.source_stamp=stamp
+        self.pending_stamp=stamp
         data=bytes(msg.data)
         mode=self.view_mode()
-        if mode=='barrier':
-            from urmc_core.barrier import detect,annotate
-            import cv2,numpy as np
-            image=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
-            if image is not None:self.encode(annotate(image,detect(image),False))
-        elif mode=='lane':
+        if self.overlay in ('auto','lane'):
             from suivi_piste_camera import lane_details,LaneTracker
+            from urmc_core.barrier import detect
+            from vision_overlay import diagnostic_view
             import cv2,numpy as np
             if self.lane_tracker is None:self.lane_tracker=LaneTracker()
             details=lane_details(data,self.lane_tracker)
-            image=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
-            if image is None:return
-            image=cv2.resize(image,(320,240));cv2.line(image,(160,90),(160,239),(255,255,0),1)
-            if 'roi' in details:
-                top,bottom=details['roi'];cv2.rectangle(image,(0,top),(319,bottom),(180,180,180),1)
-                for key,color,label in [('yellow_center',(0,255,255),'J'),('white_center',(255,255,255),'B')]:
-                    if details.get(key) is None:continue
-                    point=tuple(round(v) for v in details[key])
-                    cv2.circle(image,point,5,color,2);cv2.putText(image,label,(point[0]+6,point[1]),0,.4,color,1)
-            if details['error'] is not None:
-                points=[tuple(round(v) for v in details[k]) for k in ('yellow_center','white_center') if details.get(k) is not None]
-                target=tuple(round(v) for v in details['target_center'])
-                if len(points)==2:cv2.line(image,points[0],points[1],(0,255,0),1)
-                cv2.circle(image,target,5,(0,255,0),2)
-                cv2.arrowedLine(image,(160,239),target,(0,255,0),2)
-                label='erreur %.2f | seuil blanc %s'%(details['error'],details['white_v'])
-            else:label=details['reason']
-            cv2.rectangle(image,(0,0),(319,24),(0,0,0),-1)
-            cv2.putText(image,label,(4,17),0,.4,(0,255,0),1)
-            self.encode(image)
+            decoded=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
+            if decoded is None:return
+            self.encode(diagnostic_view(decoded,details,detect(decoded),robot_id=int(os.environ.get('URMC_ROBOT_ID','11')),priority=self.active_mission()[2] if self.active_mission() and self.active_mission()[0]=='priority' else None))
         elif data.startswith(b'\xff\xd8'):self.save(data)
         else:
             import cv2,numpy as np
@@ -138,7 +141,9 @@ class Viewer(Node):
         if ok:self.save(data.tobytes())
     def raw(self,msg):
         from cv_bridge import CvBridge
-        try:self.encode(CvBridge().imgmsg_to_cv2(msg,'bgr8'))
+        try:
+            self.pending_stamp=msg.header.stamp.sec+msg.header.stamp.nanosec/1e9
+            self.encode(CvBridge().imgmsg_to_cv2(msg,'bgr8'))
         except Exception as exc:self.get_logger().warning(str(exc),throttle_duration_sec=5.)
     def request_stop(self):
         request=Trigger.Request()
@@ -207,6 +212,7 @@ def make_handler(node,page,fps=10.):
             source_age=node.get_clock().now().nanoseconds/1e9-stamp if stamp is not None else age
             fresh=frame is not None and age<.5 and 0<=source_age<.7
             path=self.path.split('?')[0]
+            if path=='/lidar.json':return self.respond(json.dumps(node.lidar_snapshot()).encode(),'application/json')
             if path=='/stream.mjpg':return self.stream()
             if path=='/':body=page;mime='text/html; charset=utf-8';status=200
             elif path=='/status':body=json.dumps(dict(fresh=fresh,age=age if frame else None,source_age=source_age,frames=sequence)).encode();mime='application/json';status=200
@@ -223,10 +229,12 @@ def main():
     args=parser.parse_args()
     if not 1<=args.fps<=15:parser.error('FPS doit etre entre 1 et 15')
     rclpy.init();node=Viewer(args.topic,args.raw,args.stop_service,args.overlay)
-    server=ThreadingHTTPServer(('127.0.0.1',args.port),make_handler(node,PAGE,args.fps))
+    server=ThreadingHTTPServer(('127.0.0.1',args.port),make_handler(node,PAGE.replace(b'Robot 11',('Robot '+os.environ.get('URMC_ROBOT_ID','11')).encode()).replace(b'robot 11',('robot '+os.environ.get('URMC_ROBOT_ID','11')).encode()),args.fps))
     threading.Thread(target=server.serve_forever,daemon=True).start()
     print(f'Video locale : http://127.0.0.1:{args.port} ; topic {args.topic} ; stop {args.stop_service}',flush=True)
     try:rclpy.spin(node)
     except KeyboardInterrupt:pass
-    finally:server.shutdown();server.server_close();node.destroy_node();rclpy.shutdown()
+    finally:
+        server.shutdown();server.server_close();node.destroy_node()
+        if rclpy.ok():rclpy.shutdown()
 if __name__=='__main__':main()

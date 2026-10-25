@@ -50,7 +50,12 @@ def scene(x,y,yaw,mission,t,phase='checker',hide_white=False,brightness=1.,barri
     if mission==2:
         if t<8 or barrier_hold:cv2.rectangle(image,(35,115),(285,133),(240,70,20),-1)
         else:cv2.rectangle(image,(35,55),(53,175),(240,70,20),-1)
-    if mission==3 and .35<x<.6:cv2.rectangle(image,(15,145),(305,157),(240,240,240),-1)
+    # Invented intersection: borders widen at entry, then both disappear.
+    if mission==3 and .35<x<.55:
+        image[:]=(65,65,65)
+        cv2.line(image,(70,80),(40,239),(0,220,240),8)
+        cv2.line(image,(250,80),(280,239),(240,240,240),8)
+    if (mission==3 and .55<=x<1.02) or hide_lines:image[:]=(65,65,65)
     return image if brightness==1. else np.clip(image.astype(np.float32)*brightness,0,255).astype(np.uint8)
 
 
@@ -76,7 +81,9 @@ def lidar(x,y,yaw,mission,t,obstacle=False,barrier_hold=False,right_occupied=Fal
     if mission==2 and (t<8 or barrier_hold):
         values=[.4 if abs(a)<.3 else r for a,r in zip(angles,values)]
     if mission==3 and .35<x<.65 and (t<9 or right_occupied):
-        values=[.5 if abs(a+math.pi/2)<.45 else r for a,r in zip(angles,values)]
+        target_y=-.65+max(0.,min(3.,t-6.))*.08
+        seg=(.55-.09,target_y,.55+.09,target_y)
+        values=[ray_segment(x,y,a+yaw,seg) for a in angles]
     return [r if .05<=r<=3.5 else math.inf for r in values]
 
 

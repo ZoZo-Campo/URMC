@@ -2,7 +2,7 @@
 set -eo pipefail
 source /opt/ros/humble/setup.bash
 mkdir -p /ws
-cp -a /project/src /project/tests /project/tools /project/kit_robot /ws/
+cp -aL /project/src /project/tests /project/tools /project/kit_robot /ws/
 cd /ws
 colcon build --symlink-install > /tmp/urmc-build.log 2>&1 || { cat /tmp/urmc-build.log; exit 1; }
 source install/setup.bash

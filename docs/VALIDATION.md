@@ -1,31 +1,31 @@
-# Validation au 22 octobre 2026
+# Validation et limites
 
-## Tests reproductibles
+## État actuel
 
-- Six packages ROS 2 Humble compilés dans Ubuntu ARM64 sous Docker.
-- 96 tests unitaires passent : logique, perception, protection des commandes, barrière bleue, deux bordures dans les deux ordres, rejet des sauts de barycentres et serveur HTTP vidéo.
-- Le test HTTP vérifie l’annotation, le refus d’une image périmée et d’un message ROS vieux de 30 s.
-- Le serveur permanent choisit les annotations selon la mission active et reste indépendant des contrôleurs.
-- `tools/test_barrier_runtime.py` utilise de vrais nœuds ROS, un réseau Docker isolé et des vitesses remappées sur `/urmc_test/barrier/cmd_vel`. Il vérifie le suivi avant/après barrière, la fermeture, l’ouverture stable, les vues ambiguës, une nouvelle fermeture, les pertes caméra/piste, la pause et reprise après un écart excessif, le plafond de 5 cm/s et la durée facultative.
-- Les cinq scénarios nominaux synthétiques avaient atteint DONE lors de la validation précédente. Les derniers changements concernent principalement les scripts expérimentaux ; ils ne constituent pas une nouvelle validation matérielle de toutes les missions.
+| Élément | Vérifications effectuées | Limites |
+|---|---|---|
+| Interface et deux profils | Chrome, mobile, identité des vidéos/mesures, réglages distincts, commandes anciennes refusées | IP du robot 9 à confirmer |
+| Manuel | Maintien, délai de 250 ms, révocation, conflits de publishers et verrous | Essais matériels de la dernière chaîne à refaire |
+| Suivi / barrière | Perception, surfaces, états, fermeture/levée, images distinctes et fraîches ; banc ROS avec vitesses remappées | Éclairage et seuils à vérifier sur place |
+| Priorité à droite | Distance/zone/gabarit, option de mouvement, compensation odométrique, attente et traversée sans lignes | Le LiDAR ne distingue pas à coup sûr robot et personne |
+| Enceinte / SLAM | Vrai SLAM Toolbox sur scans synthétiques, sauvegarde/rechargement du graphe, pose confirmée, zone bornée, obstacle ajouté après cartographie et sortie avant 60 s | Calibration du gabarit, de la carte, des repères et de la localisation sur les robots |
+| Palette | Séquence de simulation | Perception réelle, planification des zones et pilote aimant manquants |
 
-Après compilation :
+La suite comprend les tests de perception, commande, fraîcheur, sécurité HTTP, séparation des robots, grilles orientées, inflation, zones inconnues, sauvegardes et verrous. Lors du rangement, les **163 tests** passent, puis les pilotes barrière et priorité sont exercés dans ROS avec des topics de vitesse de test. La découverte colcon identifie une seule fois les six packages.
 
-```bash
-python3 -m pytest -q -p no:cacheprovider tests
-python3 tools/test_barrier_runtime.py
-```
+## Scripts utiles
 
-Sur Mac : `bash tools/mac.sh test` exécute la suite de simulation. Le test du script barrière ci-dessus est une vérification supplémentaire à lancer dans ROS Humble, réseau isolé.
+- `python3 -m pytest` : suite unique dans `tests/`.
+- `tools/test_barrier_runtime.py` : barrière et suivi avec capteurs ROS synthétiques.
+- `tools/test_priority_runtime.py` : cible à droite, traversée sans lignes, coupure caméra et reprise.
+- `tools/test_priority_simulation.py` : launch ROS de la mission 3.
+- `tools/test_enclosure_slam.py` : workflow du banc SLAM ; refuse un serveur qui ne se déclare pas simulé.
+- `tools/integration_ros.py` : lancement des cinq bancs historiques.
 
-## Essais matériels
+Les conteneurs de test isolent les simulations des topics matériels. Les cartes et captures dans `docs/images` sont synthétiques et ne représentent pas le terrain réel.
 
-Le suivi avec virage a été confirmé par l’opérateur. Le 22 octobre, les journaux du robot montrent un suivi à environ 3 puis 5 cm/s commandés, un arrêt devant une barrière fermée et une reprise après ouverture confirmée. Ces essais étaient limités à 30 s, avant retrait de cette limite à la demande de l’opérateur.
+## Avant un essai physique
 
-Un essai prolongé a ensuite révélé des pauses sur une vue partielle du panneau et un arrêt définitif « piste trop décalée ». Les correctifs ajoutent le filtrage des barycentres et une pause récupérable avec trois images de confirmation. Un bleu ambigu sans fermeture observée ne verrouille plus définitivement la mission. La nouvelle version est installée ; sa robustesse sur un parcours complet reste à confirmer.
+Vérifier la connexion, les domaines ROS distincts, les topics et TF des capteurs, la cadence et les horodatages, le rayon réel du montage et les marges. Pour l’enceinte, confirmer la localisation et la zone autorisée, puis placer les repères avant l’entrée, à l’intérieur et au-delà de la seconde ouverture.
 
-La vidéo a été vérifiée dans Chrome : images renouvelées, aucune erreur JavaScript, interruption signalée. Sur un échantillon, transferts médians d’environ 117 ms pour le suivi et 133 ms pour la barrière. Ces chiffres ne mesurent pas le délai caméra-écran synchronisé et varient avec le réseau.
-
-## Limites
-
-Le damier et le STOP réels, la priorité avec plusieurs robots, une enceinte arbitraire et la prise réelle de palette ne sont pas validés. Les prototypes caméra du menu ne gèrent pas les obstacles LiDAR. La simulation ne reproduit pas la caméra calibrée, le glissement, le réseau de salle, les collisions dynamiques ou la préhension physique. Aucun résultat de compétition n’est garanti.
+Un chemin impossible ou inconnu impose l’arrêt. Les contrôles logiciels ne prouvent pas l’absence de collision dans toute situation physique. Une réussite en simulation ne vaut pas validation matérielle générale.

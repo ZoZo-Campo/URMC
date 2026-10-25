@@ -7,3 +7,11 @@
 Les scripts sont prévus pour le robot 11 : domaine 41, Burger, LDS-01. `URMC_ROBOT_DOMAIN` permet de choisir un autre domaine explicitement. Les pilotes existant dans un autre domaine déclenchent une erreur au lieu d’une deuxième instance. Les fichiers de verrou empêchent les lancements concurrents.
 
 Le reste des fichiers fournit les outils techniques d’inventaire, installation et lancement standard. Aucun mot de passe n’est enregistré. Les journaux sont créés dans session_robot11 sur le robot.
+
+## Mission 3
+
+`mission_priorite.py` : observation caméra compressée + LiDAR + odométrie ; ajouter `--run` pour autoriser les moteurs. Départ après suivi stable, priorité à droite selon la zone et la distance au robot, maintien de cap pendant la zone sans lignes, reprise sur les deux bordures. Un carrefour par lancement. Réglages et compte rendu dans la console. Guide détaillé : `../Missions/03_priorite_a_droite/README.md`. Les essais physiques restent nécessaires.
+
+## Mission 4 / SLAM
+
+Installer une seule fois les dépendances avec `bash kit_robot/installer_mission4.sh` sur le robot Ubuntu. Revenir dans la console → Connecter / préparer → Enceinte / SLAM. `mission_enceinte.py` est le worker supervisé : il ne roule qu’après une commande explicite du superviseur et une carte/localisation/zone/parcours validés. Ne pas lancer ce worker en parallèle d’une autre instance. Le guide opérateur est dans `../Missions/04_enceinte_slam/README.md`.

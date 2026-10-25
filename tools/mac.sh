@@ -2,7 +2,7 @@
 set -eo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-command -v docker >/dev/null || { echo 'Docker est nécessaire. Voir LIRE_MOI.html.'; exit 1; }
+command -v docker >/dev/null || { echo 'Docker est nécessaire. Voir README.md.'; exit 1; }
 if ! docker info >/dev/null 2>&1; then
   command -v colima >/dev/null || { echo 'Démarre Docker avant de continuer.'; exit 1; }
   colima start
