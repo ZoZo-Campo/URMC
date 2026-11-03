@@ -97,3 +97,26 @@ async function lidar(){const robot=activeRobot,version=selectionVersion;try{
  const s=state.status||{};$('priorityProgress').textContent=s.crossing_distance!==undefined?'Traversée : '+s.crossing_distance.toFixed(2)+' / '+s.crossing_max.toFixed(2)+' m. '+(s.reason||''):'';
  }catch(e){if(version===selectionVersion){$('lidarBadge').textContent='HORS LIGNE';$('lidarBadge').classList.remove('on');$('lidarInfo').textContent='LiDAR indisponible pour le robot '+robot;drawLidar({fresh:false});}}setTimeout(lidar,220);
 }drawLidar({fresh:false});lidar();
+
+// Quick lane settings: browser drafts are sent only by explicit submission.
+let laneDirty=false,laneSaving=false,laneProfile=null,laneSignature='',laneControls={};
+const laneColorKeys=['yellow_low','yellow_high','white_s','white_floor'];
+function laneFill(values){for(const [key,pair] of Object.entries(laneControls))if(values[key]!=null)pair.range.value=pair.number.value=values[key];}
+function laneChanged(){laneDirty=true;$('laneApplyHint').textContent='Modifications non envoyées. Cliquer sur « Appliquer au robot » pour les utiliser.';}
+function laneRefresh(){
+ if(laneProfile!==activeRobot){laneProfile=activeRobot;laneDirty=false;laneSignature='';$('laneApplyHint').textContent='Réglages du robot '+activeRobot+'. Aucun changement envoyé.';}
+ const keys=[...laneColorKeys,'speed','steering_gain'],signature=JSON.stringify(keys.map(k=>state.schema?.[k]));
+ if(signature!==laneSignature){laneSignature=signature;laneControls={};$('laneColorFields').replaceChildren();$('laneDriveFields').replaceChildren();
+  for(const key of keys){const spec=state.schema?.[key];if(!spec)continue;const [value,min,max,step,label]=spec,item=document.createElement('div'),lab=document.createElement('label'),row=document.createElement('div'),range=document.createElement('input'),number=document.createElement('input');item.className='lane-field';row.className='lane-value';lab.textContent=label;lab.htmlFor='lane-'+key;Object.assign(range,{type:'range',id:'lane-'+key,min,max,step,value});Object.assign(number,{type:'number',min,max,step,value,required:true});number.setAttribute('aria-label',label+' (valeur)');range.oninput=()=>{number.value=range.value;laneChanged();};number.oninput=()=>{range.value=number.value;laneChanged();};row.append(range,number);item.append(lab,row);$(laneColorKeys.includes(key)?'laneColorFields':'laneDriveFields').append(item);laneControls[key]={range,number};}
+ }
+ if(!laneDirty&&!laneSaving)laneFill(state.settings||{});
+ $('laneApply').disabled=laneSaving||!state.connected||!!state.job?.busy;
+ setTimeout(laneRefresh,650);
+}
+$('laneCancel').onclick=()=>{laneDirty=false;laneFill(state.settings||{});$('laneApplyHint').textContent='Changements annulés. Aucun envoi au robot.';};
+$('laneForm').onsubmit=async e=>{e.preventDefault();if(laneSaving||!state.connected||laneProfile!==activeRobot||state.robot_id!==activeRobot)return;const robot=activeRobot,version=selectionVersion,values={...state.settings};for(const [k,pair] of Object.entries(laneControls))values[k]=Number(pair.number.value);laneSaving=true;$('laneApply').disabled=true;
+ try{const r=await api('settings',values);if(robot!==activeRobot||version!==selectionVersion)return;state.settings=r.settings;laneDirty=false;laneFill(r.settings);$('laneApplyHint').textContent='Réglages enregistrés sur le robot '+robot+'. Aucun départ n’a été demandé.';notice('Seuils de piste appliqués au robot '+robot+'.');}
+ catch(err){if(robot===activeRobot){$('laneApplyHint').textContent=err.message;notice(err.message,true);}}
+ finally{laneSaving=false;}
+};
+laneRefresh();

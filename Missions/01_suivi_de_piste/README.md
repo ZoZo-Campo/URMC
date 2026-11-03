@@ -30,3 +30,9 @@ Les seuils sont dans l’interface → Réglages. Le code commun, la vidéo et l
 Barème : 4 points pour ligne droite + damier ; 1 point pour virage + STOP. −1 en cas de sortie ou de non-arrêt pour chaque partie.
 
 Les [PDF officiels fournis](../../docs/documents/) restent la référence.
+
+## Régler les couleurs dans la console
+
+Dans **Piloter**, les curseurs **Régler les couleurs de la piste** sont sous la vidéo. Ils modifient un brouillon dans le navigateur ; **Appliquer au robot** est le seul bouton qui envoie ces réglages. **Annuler les changements** rétablit les valeurs enregistrées. Vitesse et direction sont dans le panneau dépliable.
+
+La version actuellement installée adapte le seuil blanc à la lumière : le curseur de luminosité fixe son plancher. Les curseurs utilisent les paramètres déjà présents sur le robot ; leur ajout dans la console ne nécessite aucun transfert de programme. Le suivi seul utilise `--ignore-barrier` et ne prend aucune décision sur le bleu.
