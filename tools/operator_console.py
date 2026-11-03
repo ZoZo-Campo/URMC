@@ -96,8 +96,11 @@ for p in Path('/proc').iterdir():
   if p.name.isdigit() and p.stat().st_uid==os.getuid() and script in p.joinpath('cmdline').read_bytes().decode().split(chr(0)):
    os.kill(int(p.name),signal.SIGTERM);pids.append(p)
  except (OSError,ProcessLookupError):pass
+def still_running(path):
+ try:return bool(path.joinpath('cmdline').read_bytes())
+ except OSError:return False
 for _ in range(30):
- if all(not p.exists() or not p.joinpath('cmdline').read_bytes() for p in pids):break
+ if not any(still_running(p) for p in pids):break
  time.sleep(.1)
 '''
   self.remote('python3 -c '+shlex.quote(cleanup),capture_output=True,timeout=10)
