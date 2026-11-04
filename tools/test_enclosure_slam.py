@@ -43,6 +43,8 @@ for _ in range(30):
  if s.get('fresh') and s.get('mode')=='localization':break
  time.sleep(.3)
 mid=s['map_id'];action('pose',map_id=mid,pose=[-.4,0.,0.]);time.sleep(2.5);action('confirm',map_id=mid)
+# A deliberately misplaced indicative reference must never constrain the real path.
+action('enclosure',map_id=mid,enclosure=dict(width=2.,depth=2.5,origin=[10.,10.,0.]))
 action('obstacles',enabled=True);time.sleep(.5);action('run',map_id=mid);start=time.monotonic();phases=[];detour=False
 while time.monotonic()-start<65:
  s=snapshot()
@@ -50,8 +52,8 @@ while time.monotonic()-start<65:
  if s.get('pose') and abs(s['pose'][1])>.15:detour=True
  if s['phase'] in ('DONE','FAULT','TIMEOUT'):break
  time.sleep(.2)
-assert s.get('enclosure',{}).get('width')==1. and s['enclosure']['depth']==1.25
+assert s.get('enclosure',{}).get('width')==2. and s['enclosure']['depth']==2.5
 assert s['enclosure_location']=='outside'
 assert s['phase']=='DONE',(phases,s['pose'],s['reason']);assert detour;assert s['remaining']>0
-print('OK : vrai SLAM, graph sauvegardé/rechargé, localisation confirmée, obstacle absent de la carte contourné, entrée/intérieur/sortie et arrêt.',flush=True)
+print('OK : vrai SLAM, graph sauvegardé/rechargé, localisation confirmée, cadre indicatif sans contrainte, obstacle absent de la carte contourné, entrée/intérieur/sortie et arrêt.',flush=True)
 action('stop')

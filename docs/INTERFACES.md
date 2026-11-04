@@ -1,6 +1,10 @@
 # Interfaces ROS 2
 
-## Entrées et sorties du mode robot
+Les identifiants techniques historiques `01`, `02`, `03`, `04`, `05` correspondent aux missions officielles **0**, **1**, **2**, **4**, **5**. Les noms de topics et packages sont conservés. Les limites génériques ci-dessous concernent les anciens lanceurs ROS ; la console utilise les pilotes décrits ensuite.
+
+Dans la console : vitesse réglable jusqu’à **0,08 m/s** en manuel/caméra, **0,15 m/s** pour l’enceinte, rotation manuelle **0,4 rad/s**. Le matériel Burger est annoncé à **0,22 m/s**, ce qui ne constitue pas une vitesse testée sur nos deux robots.
+
+## Entrées et sorties des lanceurs génériques
 
 | Topic | Type | Missions | Convention |
 |---|---|---|---|
@@ -64,13 +68,13 @@ Le dashboard passe uniquement par ces services et les paramètres du simulateur.
 
 Par défaut, `sim.launch.py` attend Démarrer. `autostart:=true` est réservé aux essais automatisés. Les tests automatiques restent reproductibles, avec les mêmes fonctions de mission que les essais manuels.
 
-## Mission 1 : récupération et détour (13 octobre 2026)
+## Mission officielle 0, banc technique 01 : récupération et détour (13 octobre 2026)
 
-La mission 1 exige désormais `/odom` frais, y compris pour le suivi simple, afin de pouvoir effectuer son détour local. Les bandes sont analysées dans la caméra ; le contrôleur ne reçoit pas la carte du simulateur. Une bordure seule est estimée pendant au plus 8 secondes à partir de la largeur observée auparavant. Deux bordures absentes déclenchent un balayage sur place, limité à 18 secondes, puis TIMEOUT. Trois images distinctes sont nécessaires pour reprendre après une recherche.
+Le banc technique 01 exige `/odom` frais, y compris pour le suivi simple, afin de pouvoir effectuer son détour local. Les bandes sont analysées dans la caméra ; le contrôleur ne reçoit pas la carte du simulateur. Une bordure seule est estimée pendant au plus 8 secondes à partir de la largeur observée auparavant. Deux bordures absentes déclenchent un balayage sur place, limité à 18 secondes, puis TIMEOUT. Trois images distinctes sont nécessaires pour reprendre après une recherche.
 
 Un obstacle détecté à moins de 42 cm déclenche un détour de 32 cm latéralement puis 72 cm vers l’avant, si un côté paraît assez libre. Les distances sont relatives à la pose mesurée au début de la manœuvre, pas à la carte simulée. Le LiDAR et le garde de commande restent actifs ; un obstacle trop proche arrête le mouvement. Il s’agit d’une manœuvre locale pour un petit obstacle isolé, pas d’un planificateur général. Vérifier les dimensions, les limites du parcours et l’autorisation de quitter la piste avant un essai réel.
 
-## Pilote caméra / LiDAR de la console — mission 3
+## Pilote caméra / LiDAR de la console — mission officielle 2
 
 `kit_robot/mission_priorite.py` utilise les topics absolus `/image_raw/compressed`, `/scan`, `/odom`, `/cmd_vel` ; QoS capteurs BEST_EFFORT, KEEP_LAST profondeur 1. Les en-têtes et délais de réception doivent être récents : caméra <250 ms, LiDAR/odom <300 ms. Les secteurs avant et droit doivent être couverts ; `+inf` signifie libre jusqu’à range_max, les mesures invalides ne signifient pas libre.
 

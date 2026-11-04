@@ -1,6 +1,6 @@
 # URMC — TurtleBot3, ROS 2 et préparation de compétition
 
-Ce projet prépare des TurtleBot3 à cinq épreuves de robotique mobile : suivre une piste, franchir une barrière, appliquer la priorité à droite, traverser une enceinte avec obstacles et transporter une palette. Les documents de la rencontre URRMC 2026 sont dans [docs/documents](docs/documents).
+Ce projet prépare des TurtleBot3 à la compétition URRMC : suivi de piste (0), barrière (1), priorité à droite (2) et enceinte (4). La palette (5) est en pause ; les challenges collectifs (3 et 6) restent à préparer. Les documents de la rencontre URRMC 2026 sont dans [docs/documents](docs/documents).
 
 Une seule interface sur le Mac permet de sélectionner le robot, ouvrir son Terminal SSH, préparer les programmes, piloter manuellement, lancer les missions et consulter les capteurs. Les programmes ROS 2 commandant les moteurs s’exécutent sur le robot.
 
@@ -12,11 +12,13 @@ Double-cliquer **OUVRIR URMC.command**, puis ouvrir [la console locale](http://1
 
 | Mission | Dossier et code | État |
 |---|---|---|
-| 1 · Suivi de piste | [01_suivi_de_piste](Missions/01_suivi_de_piste/) | Pilotes caméra et banc ROS ; anciennement mission 0 |
-| 2 · Barrière bleue | [02_barriere](Missions/02_barriere/) | Suivi, arrêt et reprise ; réglages caméra à vérifier sur place |
-| 3 · Priorité à droite | [03_priorite_a_droite](Missions/03_priorite_a_droite/) | LiDAR, traversée sans lignes et maintien de cap ; essais matériels restants |
+| 0 · Suivi de piste | [01_suivi_de_piste](Missions/01_suivi_de_piste/) | Pilotes caméra et banc ROS |
+| 1 · Barrière bleue | [02_barriere](Missions/02_barriere/) | Suivi, arrêt et reprise ; réglages caméra à vérifier sur place |
+| 2 · Priorité à droite | [03_priorite_a_droite](Missions/03_priorite_a_droite/) | LiDAR, traversée sans lignes et maintien de cap ; essais matériels restants |
 | 4 · Enceinte / SLAM | [04_enceinte_slam](Missions/04_enceinte_slam/) | SLAM au choix, arrivée au clic et obstacles actualisés ; bancs ROS validés |
-| 5 · Palette | [05_stockage](Missions/05_stockage/) | Simulation ; perception réelle et pilote de l’aimant manquants |
+| 5 · Palette | [05_stockage](Missions/05_stockage/) | En pause à la demande de l’équipe ; anciens fichiers conservés |
+
+Les numéros affichés sont ceux du barème officiel. Les dossiers/packages techniques `01`, `02`, `03` correspondent aux missions officielles **0**, **1**, **2** ; leurs noms restent stables pour les robots. Les missions collectives **3** et **6** n’ont pas encore de programme dédié.
 
 Chaque dossier de mission contient un README, son raccourci, son code et, lorsqu’ils existent, les liens vers ses tests. Les règles utiles sont intégrées au README. Le code spécifique n’est pas dupliqué.
 
@@ -57,6 +59,12 @@ bash ~/urmc_essais_20261020/kit_robot/installer_mission4.sh
 Repréparer ensuite le robot et suivre le [guide de la mission 4](Missions/04_enceinte_slam/README.md). Les cartes réelles et réglages locaux sont exclus de Git.
 
 Les simulations fonctionnent sur le Mac avec Docker/Colima. Le banc SLAM utilise `urmc-slam:local`, préparé par `tools/preparer_slam_mac.command`. Les anciennes simulations utilisent `urmc-humble:local`. Le banc est isolé des topics matériels.
+
+## Vitesses et manuel
+
+Pour un TurtleBot3 Burger, [ROBOTIS annonce](https://emanual.robotis.com/docs/en/platform/turtlebot3/features/) **0,22 m/s** et **2,84 rad/s** au maximum. Les limites de notre logiciel sont **0,08 m/s** pour le manuel/suivi/barrière/priorité, **0,15 m/s** pour l’enceinte ; valeurs initiales **0,05** et **0,10 m/s**. Le manuel limite la rotation à **0,4 rad/s**. Ces limites ne sont pas une mesure des deux robots.
+
+Activer le manuel puis maintenir une flèche. Relâcher, quitter la page ou perdre les commandes pendant 250 ms arrête le mouvement. Après un rechargement de page ou un appui expiré, reprendre les commandes puis appuyer de nouveau. Le message sous le bouton indique si les flèches sont prêtes.
 
 ## Développement
 

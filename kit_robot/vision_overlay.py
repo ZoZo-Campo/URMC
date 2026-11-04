@@ -56,7 +56,7 @@ def diagnostic_view(image,lane,barrier,robot_id=None,priority=None):
 def priority_overlay(out,status):
  # Keep the lane masks visible; put a compact laser map over the lower camera.
  cv2.rectangle(out,(0,299),(332,359),(18,30,28),-1)
- cv2.putText(out,'M3 '+str(status.get('state','?'))+' VISION '+{'near':'PROCHE','far':'LOIN','heading':'CAP'}.get(status.get('vision_source'),'PROCHE'),(6,313),0,.40,(0,220,255),1)
+ cv2.putText(out,'M2 '+str(status.get('state','?'))+' VISION '+{'near':'PROCHE','far':'LOIN','heading':'CAP'}.get(status.get('vision_source'),'PROCHE'),(6,313),0,.40,(0,220,255),1)
  def distance(key):
   value=status.get(key);return '?' if value is None else '%.2fm'%value
  cv2.putText(out,'Droite '+distance('right')+' Avant '+distance('front'),(6,330),0,.38,(240,240,240),1)

@@ -46,7 +46,7 @@ class ManualNode(Node):
    self.v=self.w=0.
   cmd=Twist();cmd.linear.x=self.v;cmd.angular.z=self.w;self.pub.publish(cmd)
   if now-self.reported>.2:
-   data=dict(state='MANUAL',mode='manuel',v=self.v,w=self.w,held=self.hold is not None and now<=self.deadline)
+   data=dict(state='MANUAL',mode='manuel',v=self.v,w=self.w,held=self.hold is not None and now<=self.deadline,hold_expired=self.hold is not None and self.hold==self.expired and now>self.deadline)
    self.status.publish(String(data=json.dumps(data)));print(json.dumps(data),flush=True);self.reported=now
 
 def main():

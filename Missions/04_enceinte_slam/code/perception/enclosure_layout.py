@@ -1,4 +1,4 @@
-"""Physical enclosure reference. Its outline never replaces measured LiDAR walls."""
+"""Indicative enclosure reference, for display only; navigation uses measured LiDAR walls."""
 import math
 
 def validate_layout(value):
@@ -19,11 +19,3 @@ def contains(layout,point,margin=0.):
 def outside(layout,point,radius=0.):
  x,y=local_point(layout,point)
  return math.hypot(max(0.,-x,x-layout['depth']),max(0.,-y,y-layout['width']))>radius
-
-def validate_enclosure_route(layout,route,pose,radius):
- layout=validate_layout(layout)
- if not pose or not outside(layout,pose,radius):raise ValueError('Départ requis à l’extérieur de l’enceinte, avec la marge du robot.')
- if not outside(layout,route['entry'],radius):raise ValueError('Repère A : placer l’approche à l’extérieur, avant l’ouverture.')
- if not contains(layout,route['inside'],radius):raise ValueError('Repère B : placer le point intérieur dans l’enceinte avec sa marge.')
- if not outside(layout,route['exit'],radius):raise ValueError('Repère C : placer l’arrivée entièrement à l’extérieur après la sortie.')
- return layout

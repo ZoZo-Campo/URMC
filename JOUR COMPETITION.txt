@@ -16,8 +16,9 @@ URMC — COMMENCER ICI
 4. Choisir :
    VUE D’ENSEMBLE : caméra, LiDAR, vitesse et pilotage manuel.
    VITESSE : choisir Manuel/missions caméra ou Mission 4, régler en cm/s, puis Appliquer.
-   MISSIONS : suivi, barrière, priorité à droite, ou 04 pour l’enceinte.
-   SIMULATIONS : les cinq missions sur le Mac, sans commander le robot.
+   MISSIONS : 0 suivi, 1 barrière, 2 priorité à droite, 4 enceinte.
+   3 et 6 : collectif à préparer. 5 : en pause.
+   SIMULATIONS : 0, 1, 2 et banc SLAM 4, sans commander le robot.
    PARAMETRES : vitesse, correction de direction, couleurs, barrière et distances de priorité à droite.
 
 5. Pour arrêter le robot sélectionné : bouton rouge STOP.
@@ -34,7 +35,7 @@ Ne jamais saisir un mot de passe dans une page web ; utiliser le Terminal.
 Le suivi robuste et la barrière n’ont pas de limite de durée.
 Le suivi historique garde sa limite de 90 secondes.
 Les DEUX bordures sont obligatoires, sans imposer le côté des couleurs.
-Mission 3 uniquement : traversée tout droit sans lignes dans la limite réglée.
+Mission 2 uniquement : traversée tout droit sans lignes dans la limite réglée.
 La vidéo et la raison des pauses restent visibles pendant les essais.
 
 OÙ SONT LES FICHIERS ?
@@ -59,7 +60,7 @@ Points jaune/blanc : barycentres ; vert : centre de piste ; cyan : axe caméra.
 Surface affichée en pixels et en % de l’image ; l’angle et la forme restent contrôlés.
 Réglages → Barrière : seuil de surface minimum et dominance de B1.
 
-MISSION 3 — PRIORITE A DROITE
+MISSION 2 — PRIORITE A DROITE
 Missions → Priorité à droite → Observer caméra + LiDAR.
 Piloter : vérifier la vidéo, la carte LiDAR et les distances au robot.
 Réglages → Priorité à droite : seuil initial 0,80 m, à calibrer.
@@ -67,7 +68,7 @@ Mode distance par défaut ; « Exiger une approche observée » = 1 active le fi
 Puis Missions → Priorité à droite → Lancer avec moteurs.
 Le robot attend que la voie se libère, traverse au cap mémorisé sans lignes proches et regarde au loin.
 Trois images des deux bordures proches confirment la reprise du suivi proche.
-Paramètres → Mission 3 · Vision : fenêtre lointaine, uniquement pour cette mission.
+Paramètres → Mission 2 · Vision : fenêtre lointaine, uniquement pour cette mission.
 STOP pour terminer. Un seul carrefour par lancement.
 Essais sur le vrai robot encore nécessaires ; le LiDAR seul ne garantit pas la distinction robot/personne.
 
@@ -79,9 +80,9 @@ Puis Connecter / préparer dans la console.
 
 1. Missions → 04 → Préparer la mission 4 → Avec SLAM → Créer une nouvelle carte.
 2. Prendre les commandes, parcourir l’entrée, l’intérieur et la sortie ; STOP.
-3. Etape 2 : largeur 1 m, profondeur 1,25 m → Placer le cadre de l’enceinte.
-   Aligner le cadre sur les murs LiDAR. Puis dessiner la zone autorisée et placer A dehors / B dedans / C dehors.
-   Le robot commence dehors ; le parcours complet refuse un départ dedans.
+3. Etape 2 : dessiner la zone autorisée et placer A dehors / B dedans / C dehors.
+   Vérifier réellement ces positions sur les murs LiDAR ; le robot commence dehors.
+   Le cadre 1 × 1,25 m est facultatif, indicatif et ajustable ; il ne limite pas le trajet.
    Inclure le parcours, exclure un détour autour des parois par l’extérieur.
 4. Donner un nom → Enregistrer ma carte et mon parcours. Télécharger le ZIP pour le Mac.
 5. Placer le robot avant l’entrée → choisir la carte → Charger.
@@ -118,7 +119,22 @@ Cartes du robot : ~/urmc_essais_20261020/cartes/ ; sauvegarde Mac via ZIP.
 Guide détaillé : Missions/04_enceinte_slam/README.md.
 
 RANGEMENT
-01_suivi_de_piste correspond à l’ancienne mission 0.
+Numéros officiels : 0 suivi, 1 barrière, 2 priorité, 3 collectif, 4 enceinte, 5 palette en pause, 6 collectif.
+Les dossiers techniques 01, 02, 03 restent associés aux missions officielles 0, 1, 2.
 Chaque dossier Missions contient son README, son raccourci et son code.
 Les fichiers src et kit_robot sont aussi des chemins de compatibilité : ne pas les dupliquer.
 Après un clonage Git, les outils sont directement sous tools/ ; le dossier cloné correspond à Code.
+
+MANUEL ET VITESSES
+Vue d’ensemble → Activer le mode manuel → attendre « Manuel prêt » → maintenir une flèche.
+Relâcher = arrêt. Après une page rechargée : réactiver le manuel.
+Si « Appui expiré » : relâcher et appuyer de nouveau ; vérifier le réseau si cela se répète.
+Bouton STOP en cas de doute.
+Burger : maximum constructeur 22 cm/s ; logiciel actuel limité à 8 cm/s en manuel/caméra
+et 15 cm/s en enceinte. Valeurs initiales 5 et 10 cm/s. Rotation manuelle : 0,4 rad/s.
+
+PANNEAU DU TUNNEL
+Panneau représentant une arche, figure 6 du règlement. Sa reconnaissance n’est pas codée.
+Le barème lui donne 1 point mais interdit aussi la caméra en mission 4 :
+faire préciser par les organisateurs si une détection avant l’entrée est autorisée.
+A placé à la main ne valide pas ce point.

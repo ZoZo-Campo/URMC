@@ -1,6 +1,6 @@
-# Mission 1 — Suivi de piste
+# Mission 0 — Suivi de piste
 
-Cette épreuve était appelée « mission 0 » dans les premiers essais.
+Numéro officiel : **0**. Le dossier `01_suivi_de_piste` et le package `urmc_mission_01` gardent leurs noms techniques pour préserver les commandes existantes.
 
 1. Ouvrir **OUVRIR.command**, choisir le robot puis **Connecter / préparer**.
 2. **Missions → Suivre la piste → Robuste → Lancer le suivi**.
@@ -8,12 +8,12 @@ Cette épreuve était appelée « mission 0 » dans les premiers essais.
 
 Les deux bordures jaune et blanche sont requises, quel que soit leur côté. Le mode robuste s’arrête quand la perception est insuffisante et confirme plusieurs images avant la reprise. Le suivi historique reste limité à 90 secondes. Le pilote caméra n’évite pas les obstacles au LiDAR.
 
-Le banc ROS propose une piste courbe et des perturbations : **Simulations → 1 → Ouvrir → Démarrer**. Les fonctions de recherche de ligne et de détour de ce banc ne sont pas toutes présentes dans le pilote caméra réel.
+Le banc ROS propose une piste courbe et des perturbations : **Simulations → 0 → Ouvrir → Démarrer**. Les fonctions de recherche de ligne et de détour de ce banc ne sont pas toutes présentes dans le pilote caméra réel.
 
 ## Code
 
 - `code/robot/suivi_piste_camera.py` : perception des deux bordures et essai historique.
-- Le suivi robuste utilise le pilote partagé de la [mission 2](../02_barriere/code/robot/mission_barriere.py), avec `--ignore-barrier` ; il n’existe qu’une copie de ce pilote.
+- Le suivi robuste utilise le pilote partagé de la [mission 1](../02_barriere/code/robot/mission_barriere.py), avec `--ignore-barrier` ; il n’existe qu’une copie de ce pilote.
 - `code/ros2/urmc_mission_01/` : logique et launch files du banc ROS.
 - `tests/` : accès aux tests de perception et de reprise de ligne.
 
@@ -33,6 +33,6 @@ Les [PDF officiels fournis](../../docs/documents/) restent la référence.
 
 ## Régler les couleurs dans la console
 
-Dans **Piloter**, les curseurs **Régler les couleurs de la piste** sont sous la vidéo. Ils modifient un brouillon dans le navigateur ; **Appliquer au robot** est le seul bouton qui envoie ces réglages. **Annuler les changements** rétablit les valeurs enregistrées. Vitesse et direction sont dans le panneau dépliable.
+Dans **Paramètres**, les curseurs **Régler les couleurs de la piste** sont regroupés. Ils modifient un brouillon dans le navigateur ; **Appliquer au robot** est le seul bouton qui envoie ces réglages. **Annuler les changements** rétablit les valeurs enregistrées. Vitesse et direction sont dans le panneau dépliable.
 
 La version actuellement installée adapte le seuil blanc à la lumière : le curseur de luminosité fixe son plancher. Les curseurs utilisent les paramètres déjà présents sur le robot ; leur ajout dans la console ne nécessite aucun transfert de programme. Le suivi seul utilise `--ignore-barrier` et ne prend aucune décision sur le bleu.

@@ -23,7 +23,7 @@ from std_msgs.msg import String
 from tf2_ros import Buffer,TransformListener
 from ament_index_python.packages import get_package_share_directory
 from urmc_core.enclosure_map import Grid,astar,plan_goal,path_command,swept_clear,validate_route,bounded_grid
-from urmc_core.enclosure_layout import validate_layout,validate_enclosure_route,contains,outside
+from urmc_core.enclosure_layout import validate_layout,contains,outside
 from urmc_core.live_navigation import LocalView,LiveGridLayer,CameraWatch,validate_destination
 from urmc_core.operator_settings import current
 from map_store import MapStore,slug
@@ -189,7 +189,6 @@ class EnclosureNode(Node):
         self.navigation_grid=bounded_grid(self.working_grid(),self.zone)
         if task=='enclosure':
             self.route=validate_route(self.route,self.navigation_grid,self.radius())
-            validate_enclosure_route(self.enclosure,self.route,self.pose,self.radius())
         else:validate_destination(self.route,self.navigation_grid,self.radius())
         if self.mode=='local' and any(math.hypot(*point)>3. for point in (self.route.values() if task=='enclosure' else [self.route['exit']])):raise ValueError('Sans SLAM, garder les objectifs à moins de 3 m de l’origine.')
         self.task=task;self.plan_target=None
@@ -273,7 +272,7 @@ class EnclosureNode(Node):
                         self.plan=None
                     if self.plan is None and now-self.last_replan>.45:
                         epoch=self.epoch;grid=bounded_grid(self.working_grid(),self.zone);self.navigation_grid=grid;pose=self.pose;points=list(self.world_points);radius=self.radius();target=self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit','GOAL':'exit'}[self.phase]]
-                        self.plan=self.pool.submit(lambda e,g,p,t,r,o,n,near,local,layout:(e,n,plan_goal(g,p[:2],t,r,o,near,allow_start=local,goal_filter=(lambda q:contains(layout,q,r)) if near else None)),epoch,grid,pose,target,radius,points,now,self.phase=='INSIDE',self.mode=='local',self.enclosure);self.last_replan=now
+                        self.plan=self.pool.submit(lambda e,g,p,t,r,o,n,near,local:(e,n,plan_goal(g,p[:2],t,r,o,near,allow_start=local)),epoch,grid,pose,target,radius,points,now,self.phase=='INSIDE',self.mode=='local');self.last_replan=now
                     if self.path and now-self.plan_time<1.2:
                         v,w=path_command(self.pose,self.path,cfg['m4_speed']);self.reason='Trajet recalculé avec les obstacles LiDAR'
                     else:self.reason='Recherche d’un passage connu et libre ; arrêt si aucun trajet'
@@ -399,7 +398,7 @@ class EnclosureNode(Node):
                     self.enclosure=value
                     if self.selected:
                         folder=self.store.folder(self.selected);meta=json.loads((folder/'metadata.json').read_text());meta['enclosure']=value;self.store.metadata(folder,meta)
-                    return {'success':True,'message':'Repère de dimensions enregistré. Vérifier son alignement sur les murs LiDAR.'}
+                    return {'success':True,'message':'Cadre indicatif enregistré. Les murs et obstacles restent mesurés au LiDAR.'}
                 return self.ros(layout)
             if action=='route':return self.ros(lambda:self.set_route(data))
             if action=='zone':

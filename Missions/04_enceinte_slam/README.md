@@ -9,15 +9,17 @@ Dans l’étape 2, choisir **parcours complet** (entrée → intérieur → arri
 
 Les deux modes utilisent le même pilote ROS 2 et les mêmes contrôles LiDAR. Activer la carte ne fait pas bouger le robot : seul le manuel ou le bouton de départ commande les moteurs. Le règlement impose une perception exclusivement LiDAR pour cette mission. Vidéo et assistance caméra sont désactivées par défaut et réservées aux essais hors compétition.
 
-## Terrain : 1 m × 1,25 m, départ à l’extérieur
+## Dimensions indicatives, départ à l’extérieur
 
-La largeur prévue est **1 m**, la profondeur **1,25 m**. Le banc SLAM reprend ces dimensions. L’espace extérieur reste cartographié : le robot démarre devant l’enceinte, y entre, passe à l’intérieur puis termine entièrement dehors.
+**1 m × 1,25 m** est une indication de départ, pas une dimension imposée de l’épreuve. Le terrain d’entraînement SLAM utilise actuellement cette taille. Les dimensions et l’orientation du cadre affiché dans l’étape 2 peuvent être ajustées manuellement et sauvegardées avec la carte. Le cadre est **facultatif et purement visuel** : son absence, son placement et ses dimensions ne bloquent pas le départ et ne modifient ni les murs ni le calcul du trajet. Les vrais murs et obstacles viennent du LiDAR ; le rayon du robot, sa marge et sa vitesse sont réglables dans **Paramètres → Enceinte / SLAM**.
 
-Dans l’étape 2 de l’interface, vérifier les dimensions et cliquer **Placer le cadre de l’enceinte**. Cliquer sur un coin, puis tirer dans le sens de la profondeur ; la largeur se place à gauche de cette direction. Un clic sans glisser utilise l’orientation saisie en degrés. Aligner le cadre sur les murs observés au LiDAR. Ce cadre conserve les dimensions et le repère du terrain ; il ne fabrique pas de parois ni de passages libres dans la carte.
+Pour le parcours complet, placer réellement le robot dehors, **A** avant l’ouverture, **B** dans l’enceinte et **C** dehors après la sortie. Vérifier ces positions sur les murs mesurés : le logiciel ne certifie pas automatiquement les côtés de l’enceinte à partir du cadre indicatif. La zone autorisée doit exclure un détour extérieur. Le mode **Test libre · aller au point d’arrivée** est distinct de cette séquence complète.
 
-Pour **Mission 4 · dehors, entrée, intérieur, sortie** : placer **A** dehors avant l’ouverture, **B** dedans avec la marge du robot, puis **C** dehors après la sortie. Le départ doit également être entièrement dehors. Le logiciel refuse un départ dedans ou des repères du mauvais côté. Un éventuel déplacement du repère intermédiaire pour éviter un obstacle reste dans l’enceinte. Le cadre est sauvegardé avec la carte et le parcours. Une ancienne carte sans cadre doit être complétée avant le prochain départ.
+## Le point « panneau d’entrée au tunnel »
 
-L’option **Test libre · aller au point d’arrivée** reste une expérience de navigation distincte ; elle n’effectue pas la séquence complète de l’épreuve. Le choix avec/sans SLAM reste indépendant du parcours.
+Le panneau illustré en **figure 6, page 6** représente une arche de tunnel. Le barème, page 9, attribue **1 point** à sa détection. Cependant, la section **4.2.1, page 5** demande de détecter l’**ouverture** au LiDAR et interdit la caméra durant cette mission. Le document ne précise pas comment concilier la reconnaissance du panneau et cette interdiction, ni si une reconnaissance caméra avant l’entrée est autorisée. Faire confirmer cette étape par les organisateurs avant de choisir son capteur.
+
+**La reconnaissance automatique du panneau n’est pas implémentée.** Poser A manuellement ou charger une carte ne réalise pas cette détection et ne valide pas ce point du barème. Le pilote actuel réalise la navigation sur des repères préparés, avec évitement LiDAR.
 
 ## Une seule fois : préparer
 
@@ -37,7 +39,7 @@ Sur le Mac, pour le banc SLAM complet : double-cliquer `Code/tools/preparer_slam
 2. Ouvrir **Enceinte / SLAM**, source **Sur le robot réel**.
 3. Cliquer **Créer une nouvelle carte**. Une nouvelle session est créée ; les versions enregistrées ne sont pas écrasées.
 4. Cliquer **Prendre les commandes**, puis maintenir les flèches et parcourir l’entrée, l’intérieur et la sortie. Relâcher arrête les moteurs. Passer suffisamment près des zones à utiliser pour qu’elles soient connues en blanc sur la carte. Une zone inconnue reste interdite au planificateur.
-5. Arrêter. Placer le cadre de dimensions comme ci-dessus. Choisir **Dessiner la zone**, cliquer et tirer un rectangle sur la carte. Il doit inclure l’enceinte et les repères extérieurs, mais interdire un détour qui contournerait les parois par l’extérieur. Cette limite fait partie de la préparation du parcours.
+5. Arrêter. Le cadre de dimensions est facultatif. Choisir **Dessiner la zone**, cliquer et tirer un rectangle sur la carte. Il doit inclure l’enceinte et les repères extérieurs, mais interdire un détour qui contournerait les parois par l’extérieur. Cette limite fait partie de la préparation du parcours.
 6. Choisir successivement les trois actions au clic : **entrée** juste avant la première ouverture, **intérieur** dans l’enceinte, **sortie** au-delà de la seconde ouverture. Le robot suit ensuite ces repères sans commande manuelle. Éviter de placer un repère contre un mur.
 7. Donner un nom simple et cliquer **Enregistrer ma carte et mon parcours**. La sauvegarde porte un horodatage et conserve grille, image PNG, PGM/YAML, graphe `.posegraph`/`.data`, zone et repères.
 8. **Télécharger ma carte (ZIP)** copie cette version sur le Mac via le navigateur. Sur le robot, les cartes sont sous `~/urmc_essais_20261020/cartes/`. Elles ne sont pas supprimées par Connecter / préparer.
@@ -52,7 +54,7 @@ Sur le Mac, pour le banc SLAM complet : double-cliquer `Code/tools/preparer_slam
 
 La mission vise d’abord l’entrée, puis le point intérieur, puis la sortie. Le chronomètre de 60 s démarre à l’atteinte du repère d’entrée, donc de façon conservatrice avant le franchissement complet. La sortie est validée par l’atteinte du repère extérieur choisi ; c’est pourquoi sa calibration et la zone autorisée comptent.
 
-Le repère intérieur peut être adapté à un point libre voisin uniquement à l’intérieur du cadre. Le planificateur A* utilise une carte avec empreinte du robot et marge, et une couche LiDAR actualisée. Un nouvel obstacle bloque immédiatement les cellules concernées. Un ancien obstacle de la carte est retiré de cette couche après trois scans distincts montrant le passage libre. Une zone masquée ne devient pas libre par supposition ; la carte enregistrée reste intacte et les zones inconnues restent interdites. Le chemin est recalculé environ deux fois par seconde. Un repère intérieur occupé peut être remplacé par un point voisin jusqu’à 25 cm, en restant dans la zone autorisée. Les obstacles ne doivent donc pas être présents dans la carte préalable pour être évités. Si aucun passage connu n’est suffisamment large, le robot attend à l’arrêt ; il ne force pas le passage.
+Le planificateur A* utilise une carte avec empreinte du robot et marge, et une couche LiDAR actualisée. Un nouvel obstacle bloque immédiatement les cellules concernées. Un ancien obstacle de la carte est retiré de cette couche après trois scans distincts montrant le passage libre. Une zone masquée ne devient pas libre par supposition ; la carte enregistrée reste intacte et les zones inconnues restent interdites. Le chemin est recalculé environ deux fois par seconde. Un repère intérieur occupé peut être remplacé par un point voisin jusqu’à 25 cm, en restant dans la zone autorisée. Les obstacles ne doivent donc pas être présents dans la carte préalable pour être évités. Si aucun passage connu n’est suffisamment large, le robot attend à l’arrêt ; il ne force pas le passage.
 
 Le dernier contrôle de mouvement vérifie l’empreinte sur la carte et sur les points LiDAR actuels. Une approche trop serrée réduit la vitesse ou l’annule. La navigation ne recule pas automatiquement. Elle ne garantit pas la résolution de tout labyrinthe ni la réussite dans une enceinte bloquée.
 
@@ -94,7 +96,7 @@ Les cartes du banc persistent dans le volume Docker `urmc-cartes-simulation`. Ut
 ## Code associé
 
 - `code/robot/mission_enceinte.py` : SLAM, localisation TF, services HTTP privés et pilote moteur ROS 2.
-- `code/perception/enclosure_layout.py` : dimensions, orientation et vérification départ/approche dehors, B dedans, C dehors.
+- `code/perception/enclosure_layout.py` : cadre indicatif et repérage visuel, sans contrainte sur le trajet.
 - `code/perception/live_navigation.py` : couche LiDAR vivante, vue sans SLAM et assistance caméra d’essai.
 - `code/perception/enclosure_map.py` : grille métrique, inflation, zone, A*, suivi et contrôle de collision.
 - `code/robot/map_store.py` : sauvegardes versionnées et export ZIP.
@@ -127,6 +129,6 @@ Ces vues proviennent du SLAM sur scans synthétiques du banc. Elles ne constitue
 - À l’intérieur, trouver l’issue et sortir dans un délai de 1 minute.
 - Répéter l’entrée/sortie avec des obstacles placés aléatoirement.
 
-Barème : 1 point : panneau d’entrée ; 3 points : entrée ; 3 points : sortie ; bonus +3 avec obstacles. −1 si paroi touchée, −1 si chute d’obstacle.
+Barème : 1 point : panneau d’entrée (non implémenté, règle capteur à clarifier) ; 3 points : entrée ; 3 points : sortie ; bonus +3 avec obstacles. −1 si paroi touchée, −1 si chute d’obstacle.
 
 Les [PDF officiels fournis](../../docs/documents/) restent la référence.

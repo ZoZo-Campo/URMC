@@ -1,8 +1,10 @@
 # Mission 5 — Stockage et transport de palette
 
-**Simulation uniquement : le pilote réel de l’électroaimant et la reconnaissance des zones restent à intégrer.**
+**En pause à la demande de l’équipe. Aucun nouveau développement et aucun lancement proposé dans l’interface.**
 
-Ouvrir **OUVRIR.command**, puis **Simulations → 5 → Ouvrir → Démarrer**. Le banc fournit des observations synthétiques de zones, de palette et de prise. Ces observations ne constituent pas un détecteur matériel.
+Les anciens fichiers de simulation sont conservés. Le pilote réel de l’électroaimant et la reconnaissance des zones restent à intégrer.
+
+L’ancien banc fournit uniquement des observations synthétiques de zones, de palette et de prise ; il ne constitue pas un détecteur matériel.
 
 ## Code
 

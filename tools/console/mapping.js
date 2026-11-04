@@ -60,9 +60,9 @@ function renderMapGuide(){
  const localChoice=$('mapNavMode').value==='local',localActive=mapping.mode==='local',direct=$('mapJourney').value==='goal';
  const matches=localChoice?localActive:!localActive,available=!!mapping.available,hasMap=!!mapping.map&&matches,zone=Array.isArray(mapping.zone)&&mapping.zone.length===4;
  const keys=direct?['exit']:['entry','inside','exit'],marks=keys.filter(k=>Array.isArray(mapping.route?.[k])&&mapping.route[k].length===2).length;
- const layout=mapping.enclosure,layoutProblem=direct?'':enclosureDirty?'Replacer le cadre pour enregistrer les nouvelles dimensions.':enclosureProblem(mapping);const prepared=hasMap&&zone&&marks===keys.length&&(direct||!!layout),localized=localActive||mapping.mode==='localization',fresh=!!mapping.fresh,active=!!mapping.active;
+ const layout=mapping.enclosure;const prepared=hasMap&&zone&&marks===keys.length,localized=localActive||mapping.mode==='localization',fresh=!!mapping.fresh,active=!!mapping.active;
  const camera=mapping.camera||{enabled:false,allowed:true},cameraReady=!camera.enabled||camera.allowed;
- const saved=localActive||localized||mapSavedSession===mapping.map_id,ready=available&&prepared&&localized&&fresh&&mapping.confirmed&&cameraReady&&!active&&!layoutProblem;
+ const saved=localActive||localized||mapSavedSession===mapping.map_id,ready=available&&prepared&&localized&&fresh&&mapping.confirmed&&cameraReady&&!active;
  renderEnclosure(layout,localActive,active);
  $('mapNavMode').disabled=mapBusy||active;$('mapJourney').disabled=mapBusy||active;
  $('mapModeHint').textContent=localChoice?'Sans SLAM : le LiDAR dessine une vue locale, repérée par l’odométrie de départ. Choisis une arrivée observée à moins de 3 m ; la position peut dériver.':'Avec SLAM : crée ou charge une carte, puis localise le robot. Les scans restent analysés pour ajouter les obstacles et confirmer ceux qui ont disparu.';
@@ -93,18 +93,16 @@ function renderMapGuide(){
  let title,hint,label;
  if(!available){title=mapSimulation?'Commence ton entraînement':'Commence avec ton robot';hint=mapSimulation?'Démarre le banc Mac : tous les mouvements resteront simulés.':'Choisis ton robot et connecte-le, ou passe en entraînement sur le Mac.';label=mapSimulation?'Démarrer mon entraînement →':'Connecter mon robot →';mapNextTarget=mapSimulation?'mapSimStart':'connect';}
  else if(!hasMap){title=localChoice?'1 · Observe sans SLAM':'1 · Découvre le terrain';hint=localChoice?'Active la vue locale. Le point de départ devient son origine ; les scans affichent ce qui est réellement observé.':'Crée une carte, ou utilise une version déjà enregistrée.';label=localChoice?'Activer la vue sans SLAM →':'Créer ma carte →';mapNextTarget='mapNew';}
- else if(!direct&&!layout){title='2 · Place le cadre de l’enceinte';hint='Vérifie 1 m de largeur et 1,25 m de profondeur, puis aligne le cadre sur les murs.';label='Placer l’enceinte →';mapNextTarget='mapPanel2';}
  else if(!prepared){title=direct?'2 · Choisis ton arrivée':'2 · Prépare le parcours';hint=!zone?'Dessine d’abord la zone autorisée sur la carte.':direct?'Clique sur « Choisir mon arrivée », puis sur le point à atteindre.':'Il reste '+(keys.length-marks)+' repère(s) à placer : entrée, intérieur, arrivée.';label=direct?'Choisir mon arrivée →':'Placer mes repères →';mapNextTarget='mapPanel2';}
  else if(!saved){title='2 · Garde ta préparation';hint='La zone et les repères sont prêts. Enregistre ta carte avant le départ.';label='Enregistrer ma préparation →';mapNextTarget='mapSave';}
  else if(!localized){title='3 · Prépare le départ';hint='Charge la carte enregistrée pour localiser le robot.';label='Charger ma carte →';mapNextTarget='mapPrepareRun';}
  else if(!mapping.confirmed){title='3 · Où est le robot ?';hint='Indique sa position et son orientation, vérifie les scans puis confirme.';label='Vérifier la position →';mapNextTarget='mapPanel3';}
- else if(layoutProblem){title='Vérifie le départ et les repères';hint=layoutProblem;label='Vérifier le parcours →';mapNextTarget='mapPanel2';}
  else if(!fresh||!cameraReady){title='Les capteurs doivent être prêts';hint=!fresh?'Attends des scans et une position récents.':(cameraNames[camera.state]||'Vérifier l’assistance caméra.')+' Tu peux désactiver cette assistance hors navigation.';label='Voir les vérifications →';mapNextTarget='mapPanel3';}
  else if(active){title='Le robot reste attentif';hint='Le LiDAR actualise les obstacles et le trajet. Le bouton rouge reste disponible.';label='Voir le STOP →';mapNextTarget='mapPanel3';}
  else{title='Tout est prêt pour l’essai';hint=(direct?'Le robot visera ton point d’arrivée. ':'Le robot suivra entrée → intérieur → arrivée. ')+(localActive?'Mode sans SLAM, repère odométrique.':'Mode SLAM, position corrigée.');label='Aller au départ →';mapNextTarget='mapRun';}
  $('mapNextTitle').textContent=title;$('mapNextHint').textContent=hint;$('mapNextButton').textContent=label;$('mapNextButton').disabled=mapBusy||(mapNextTarget==='connect'&&$('connect').disabled);
  $('mapRun').textContent=direct?'Aller à mon arrivée avec moteurs →':'Lancer la mission 4 avec moteurs →';
- $('mapRunHint').textContent=layoutProblem?layoutProblem:ready?'Prêt : le prochain clic sur le bouton vert commande les moteurs.':active?'Navigation en cours. STOP arrête le robot.':'Avant le départ : mode actif, zone et arrivée définies, position valide et capteurs récents.';
+ $('mapRunHint').textContent=ready?'Prêt : le prochain clic sur le bouton vert commande les moteurs.':active?'Navigation en cours. STOP arrête le robot.':'Avant le départ : mode actif, zone et arrivée définies, position valide et capteurs récents.';
 }
 
 renderMapGuide();
@@ -116,21 +114,11 @@ $('mapNavMode').onchange=()=>{mapRelease();clearMapPick();renderMapGuide();notic
 $('mapJourney').onchange=()=>{mapRelease();clearMapPick();renderMapGuide();};
 $('mapCameraAssist').onchange=()=>{const enabled=$('mapCameraAssist').checked;mapButton(async()=>{const r=await mapAction('camera',{enabled});mapping.camera={enabled,allowed:!enabled,state:enabled?'ATTENTE_IMAGE':'DESACTIVEE'};if(enabled)$('mapCameraEnabled').checked=true;notice(r.message);});};
 
-function enclosurePoint(layout,p){const [x,y,a]=layout.origin,dx=p[0]-x,dy=p[1]-y;return [dx*Math.cos(a)+dy*Math.sin(a),-dx*Math.sin(a)+dy*Math.cos(a)];}
-function enclosureOutside(layout,p,r=0){const [x,y]=enclosurePoint(layout,p);return Math.hypot(Math.max(0,-x,x-layout.depth),Math.max(0,-y,y-layout.width))>r;}
-function enclosureProblem(value){
- const e=value.enclosure;if(!e?.origin)return 'Placer le cadre de dimensions sur la carte.';const r=value.radius||.13,route=value.route||{};
- if(!value.active&&value.pose&&!enclosureOutside(e,value.pose,r))return 'Le robot doit démarrer entièrement à l’extérieur de l’enceinte.';
- if(route.entry&&!enclosureOutside(e,route.entry,r))return 'A doit être dehors, avant l’entrée.';
- if(route.inside){const [x,y]=enclosurePoint(e,route.inside);if(!(r<=x&&x<=e.depth-r&&r<=y&&y<=e.width-r))return 'B doit être à l’intérieur, avec la marge du robot.';}
- if(route.exit&&!enclosureOutside(e,route.exit,r))return 'C doit être entièrement dehors, après la sortie.';
- return '';
-}
 function renderEnclosure(layout,local,active){
  if(enclosureSession!==mapping.map_id){enclosureSession=mapping.map_id;enclosureDirty=false;}
  if(!enclosureDirty){$('mapEnclosureWidth').value=layout?.width??1;$('mapEnclosureDepth').value=layout?.depth??1.25;$('mapEnclosureYaw').value=Math.round((layout?.origin?.[2]||0)*180/Math.PI);}
  for(const id of ['mapEnclosureWidth','mapEnclosureDepth','mapEnclosureYaw'])$(id).disabled=active||mapBusy;
- $('mapEnclosureReadout').textContent=layout?'Cadre enregistré : '+layout.width.toFixed(2)+' × '+layout.depth.toFixed(2)+' m · repère '+(local?'local':'SLAM'):'Cadre à placer pour le parcours complet.';
- $('mapLocation').textContent=mapping.enclosure_location==='outside'?'Robot à l’extérieur':mapping.enclosure_location==='inside'?'Robot à l’intérieur':mapping.enclosure_location==='boundary'?'Robot au passage de l’enceinte':'Position à vérifier';
+ $('mapEnclosureReadout').textContent=layout?'Cadre indicatif enregistré : '+layout.width.toFixed(2)+' × '+layout.depth.toFixed(2)+' m · repère '+(local?'local':'SLAM'):'Cadre facultatif : aucune dimension imposée au trajet.';
+ $('mapLocation').textContent=mapping.enclosure_location==='outside'?'Hors du cadre indicatif':mapping.enclosure_location==='inside'?'Dans le cadre indicatif':mapping.enclosure_location==='boundary'?'Au bord du cadre indicatif':'Cadre indicatif non placé';
 }
-for(const id of ['mapEnclosureWidth','mapEnclosureDepth','mapEnclosureYaw'])$(id).oninput=()=>{enclosureDirty=true;renderMapGuide();$('mapEnclosureReadout').textContent='Dimensions modifiées : replacer le cadre sur la carte pour enregistrer.';};
+for(const id of ['mapEnclosureWidth','mapEnclosureDepth','mapEnclosureYaw'])$(id).oninput=()=>{enclosureDirty=true;renderMapGuide();$('mapEnclosureReadout').textContent='Brouillon indicatif : replacer le cadre pour enregistrer. Le départ reste possible.';};

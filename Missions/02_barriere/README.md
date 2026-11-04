@@ -1,4 +1,6 @@
-# Mission 2 — Barrière bleue
+# Mission 1 — Barrière bleue
+
+Numéro officiel : **1** ; dossier et package techniques `02` conservés.
 
 1. Ouvrir **OUVRIR.command**, choisir le robot puis **Connecter / préparer**.
 2. **Missions → Franchir la barrière → Observer** pour vérifier le panneau.
@@ -17,7 +19,7 @@ Le suivi garde les deux bordures, dans les deux sens de couleur. Il n’a pas de
 - `code/ros2/urmc_mission_02/` : logique et launch files du banc ROS.
 - `tests/` : tests du détecteur.
 
-Simulation : **Simulations → 2 → Ouvrir → Démarrer**. Les dimensions, l’éclairage et les seuils restent à vérifier sur le panneau de compétition.
+Simulation : **Simulations → 1 → Ouvrir → Démarrer**. Les dimensions, l’éclairage et les seuils restent à vérifier sur le panneau de compétition.
 
 ## Règles résumées
 
