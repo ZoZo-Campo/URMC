@@ -230,9 +230,11 @@ class Fleet:
    if isinstance(domain,bool) or not isinstance(domain,int) or not 0<=domain<=232:raise ValueError('Domaine ROS invalide (0 à 232).')
    if any(other is not robot and other.host==host for other in self.robots.values()):raise ValueError('Les deux robots doivent avoir des adresses différentes.')
    if any(other is not robot and other.domain==domain for other in self.robots.values()):raise ValueError('Les deux robots doivent avoir des domaines ROS différents.')
-   robot.close_tunnels();robot.host=host;robot.target='ubuntu@'+host;robot.domain=domain;robot.domain_detected=False;robot.robot_token=None;robot.connected=robot.demo;robot.last={}
    if not self.demo:
-    self.config_path.parent.mkdir(exist_ok=True);self.config_path.write_text(json.dumps({str(i):{'host':r.host,'domain':r.domain} for i,r in self.robots.items()},indent=2))
+    profiles={str(i):{'host':host if r is robot else r.host,'domain':domain if r is robot else r.domain} for i,r in self.robots.items()}
+    self.config_path.parent.mkdir(parents=True,exist_ok=True)
+    temporary=self.config_path.with_suffix('.tmp');temporary.write_text(json.dumps(profiles,indent=2));temporary.replace(self.config_path)
+   robot.close_tunnels();robot.host=host;robot.target='ubuntu@'+host;robot.domain=domain;robot.domain_detected=False;robot.robot_token=None;robot.connected=robot.demo;robot.last={}
    return {'success':True}
  def state(self):
   from concurrent.futures import ThreadPoolExecutor
@@ -304,7 +306,7 @@ def make_handler(backend,csrf):
   def do_GET(self):
    path=self.path.split('?')[0]
    if path=='/':return self.respond((ROOT/'tools/console/index.html').read_text().replace('__TOKEN__',csrf).encode(),'text/html; charset=utf-8')
-   if path in ('/app.js','/mapping.js','/style.css'):
+   if path in ('/app.js','/mapping.js','/dashboard.js','/style.css'):
     return self.respond((ROOT/'tools/console'/path[1:]).read_bytes(),'text/javascript; charset=utf-8' if path.endswith('js') else 'text/css; charset=utf-8')
    if path=='/api/state':return self.respond(backend.state())
    if path=='/api/mapping/frame':
@@ -390,7 +392,7 @@ def make_handler(backend,csrf):
  return Handler
 
 def main():
- parser=argparse.ArgumentParser();parser.add_argument('--demo',action='store_true');parser.add_argument('--no-open',action='store_true');parser.add_argument('--tab',choices=['drive','missions','mapping','simulation','settings','help'],default='drive');parser.add_argument('--mission',type=int,choices=range(1,6),default=1);args=parser.parse_args()
+ parser=argparse.ArgumentParser();parser.add_argument('--demo',action='store_true');parser.add_argument('--no-open',action='store_true');parser.add_argument('--tab',choices=['network','drive','missions','mapping','simulation','settings','help'],default='drive');parser.add_argument('--mission',type=int,choices=range(1,6),default=1);args=parser.parse_args()
  url=f'http://127.0.0.1:{PORT}/?tab={args.tab}&mission={args.mission}'
  backend=Fleet(args.demo);csrf=secrets.token_urlsafe(32)
  try:server=ThreadingHTTPServer(('127.0.0.1',PORT),make_handler(backend,csrf))

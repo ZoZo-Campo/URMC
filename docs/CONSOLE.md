@@ -40,3 +40,11 @@ La mission 4 superpose la carte enregistrée, la pose TF, les obstacles LiDAR ac
 Le code canonique spécifique est dans `Missions/*/code`. Les liens dans `src` et `kit_robot` gardent les interfaces techniques existantes. `Missions/COLCON_IGNORE` empêche une double découverte ; colcon passe par `src`. Les conteneurs et les archives de transfert suivent ces liens.
 
 Les cartes, graphes SLAM, réglages de session, jetons, journaux, résultats générés et environnements compilés sont exclus de Git. Les archives et références anciennes restent hors du dossier actif. Le dépôt publié et le dossier Code du Bureau sont maintenant une seule copie Git.
+
+## Console modernisée
+
+**Robots & connexion** regroupe les profils 9 et 11. Sélectionner le robot, saisir son IP actuelle, enregistrer, puis connecter/préparer. Les IP et domaines sont sauvegardés sur le Mac dans `session_console/robots.json`. Un changement d’adresse est refusé pendant une mission ou une préparation. La sauvegarde est atomique ; une erreur disque conserve la connexion précédente.
+
+**Vue d’ensemble** rassemble les états de connexion, caméra, LiDAR, vitesse commandée, pilotage et limite de vitesse. Le curseur est en cm/s ; il distingue le manuel/missions caméra de la mission 4. Déplacer le curseur ne fait aucun envoi. Le bouton Appliquer conserve les autres réglages et ne démarre aucune mission. La vitesse commandée n’est pas une mesure de vitesse physique.
+
+**Paramètres** rassemble les couleurs et les réglages détaillés par mission. **Missions autonomes**, **Enceinte / SLAM**, **Simulations** et **Mode d’emploi** gardent leurs fonctions. Les essais visuels de cette refonte ont lieu en démonstration ; aucun robot n’est modifié ni lancé pendant ces vérifications.

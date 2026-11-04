@@ -8,15 +8,17 @@ URMC — COMMENCER ICI
 3. Choisir le robot dans la barre latérale :
    Robot 11 : 192.168.42.211.
    Robot 9 : 192.168.42.209 proposée, à confirmer.
-   Les adresses sont modifiables dans Réglages → Connexion.
+   Les adresses sont modifiables dans Robots & connexion → Enregistrer l’adresse.
+   Chaque robot garde son IP et son domaine, même après fermeture de la console.
    Puis cliquer CONNECTER / PREPARER pour le robot sélectionné.
    La caméra et les programmes sont préparés, sans lancer les moteurs.
 
 4. Choisir :
-   PILOTER : activer le manuel, puis maintenir une flèche.
+   VUE D’ENSEMBLE : caméra, LiDAR, vitesse et pilotage manuel.
+   VITESSE : choisir Manuel/missions caméra ou Mission 4, régler en cm/s, puis Appliquer.
    MISSIONS : suivi, barrière, priorité à droite, ou 04 pour l’enceinte.
    SIMULATIONS : les cinq missions sur le Mac, sans commander le robot.
-   REGLAGES : vitesse, correction de direction, couleurs, barrière et distances de priorité à droite.
+   PARAMETRES : vitesse, correction de direction, couleurs, barrière et distances de priorité à droite.
 
 5. Pour arrêter le robot sélectionné : bouton rouge STOP.
    STOP TOUS et le raccourci STOP.command demandent l’arrêt des deux robots.

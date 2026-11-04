@@ -198,3 +198,30 @@ def test_slam_camera_relay_is_a_read_only_jpeg(monkeypatch,tmp_path):
   with original(f'http://127.0.0.1:{server.server_port}/api/mapping/frame') as r:
    assert r.headers['Content-Type']=='image/jpeg' and r.read().startswith(b'\xff\xd8')
  finally:server.shutdown();server.server_close()
+
+
+def test_robot_addresses_persist_across_restart(tmp_path):
+ from operator_console import Fleet
+ path=tmp_path/'profiles'/'robots.json';fleet=Fleet(False,path)
+ fleet.configure(dict(robot=11,host='192.168.42.221',domain=41))
+ fleet.select(9);fleet.configure(dict(robot=9,host='192.168.42.219',domain=39))
+ restored=Fleet(False,path)
+ assert restored.robots[11].host=='192.168.42.221'
+ assert restored.robots[9].host=='192.168.42.219'
+ assert restored.robots[9].domain==39
+
+
+def test_failed_profile_save_keeps_current_connection(tmp_path,monkeypatch):
+ from operator_console import Fleet
+ fleet=Fleet(False,tmp_path/'robots.json');robot=fleet.robots[11]
+ monkeypatch.setattr(Path,'write_text',lambda *a,**kw:(_ for _ in ()).throw(OSError('disk unavailable')))
+ with pytest.raises(OSError):fleet.configure(dict(robot=11,host='192.168.42.222',domain=41))
+ assert robot.host=='192.168.42.211' and robot.domain==41
+
+
+def test_speed_settings_preserve_other_parameters_and_do_not_start(tmp_path):
+ controller=Controller(tmp_path,lambda *a,**kw:Process())
+ initial=controller.settings();controller.save_settings(dict(initial,white_s=40,speed=.035))
+ updated=controller.settings()
+ assert updated['speed']==.035 and updated['white_s']==40
+ assert controller.process is None and controller.mode=='idle'

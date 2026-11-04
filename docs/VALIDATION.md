@@ -32,3 +32,7 @@ Les conteneurs de test isolent les simulations des topics matériels. Les cartes
 Vérifier la connexion, les domaines ROS distincts, les topics et TF des capteurs, la cadence et les horodatages, le rayon réel du montage et les marges. Pour l’enceinte, confirmer la localisation et la zone autorisée, puis placer les repères avant l’entrée, à l’intérieur et au-delà de la seconde ouverture.
 
 Un chemin impossible ou inconnu impose l’arrêt. Les contrôles logiciels ne prouvent pas l’absence de collision dans toute situation physique. Une réussite en simulation ne vaut pas validation matérielle générale.
+
+## Refonte de la console — 4 novembre 2026
+
+180 tests passent dans ROS 2 Humble, avec topics de test isolés. Les ajouts vérifient la persistance des adresses des deux profils, la conservation de la connexion en cas d’erreur disque et le réglage de vitesse sans démarrage de processus moteur. Dans le navigateur en démonstration : brouillon puis application de vitesse en cm/s, IP distinctes, changement de profil et rechargement avec le robot 9 sélectionné. Ces essais n’attestent pas la réussite physique des missions.
