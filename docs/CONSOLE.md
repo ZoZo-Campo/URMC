@@ -52,3 +52,12 @@ Les cartes, graphes SLAM, réglages de session, jetons, journaux, résultats gé
 Les missions officielles 2 et 4 donnent accès à leurs paramètres. Le cadre métrique de l’enceinte est indicatif, ajustable et facultatif : aucun contrôle du départ ou du trajet ne repose sur ses dimensions. La carte mesurée, la zone autorisée, les repères, la pose et les capteurs restent contrôlés. Les anciens noms de dossiers et packages sont préservés.
 
 Le manuel ignore les états reçus avant une activation ou pendant son attente : un ancien état « à l’arrêt » ne peut plus invalider la nouvelle session. Les flèches sont disponibles seulement lorsque le navigateur possède la commande manuelle active. Après rechargement, une reprise explicite est demandée. Dans le navigateur, STOP invalide immédiatement toute réponse d’activation en attente ; les erreurs d’une ancienne session ne relâchent pas la nouvelle. Le maintien de 250 ms côté ROS est conservé.
+
+
+## Compléments des missions 0, 1, 2 et 4
+
+La cible d’arrivée de la mission 0 est choisie par essai : damier, STOP ou les deux. Le superviseur passe ce choix dans l’environnement du seul pilote lancé ; il ne réécrit pas les réglages communs et la barrière conserve son arrêt au damier. Les anciens superviseurs n’annonçant pas la capacité STOP sont signalés avant le lancement d’un essai STOP/automatique. Les seuils sont dans Mission 0 · Arrêt. Le cadre du panneau et la confirmation apparaissent dans la vidéo.
+
+Le suivi et la barrière traitent la dernière image compressée, sans file d’images, avec contrôle des horodatages à chaque cycle. La priorité à droite peut arrêter l’approche avant l’interruption des bordures, puis confirme toujours le vrai carrefour avant de traverser.
+
+L’enceinte s’arrête au repère A pour vérifier au LiDAR deux montants et une largeur suffisante sur plusieurs scans distincts. La carte affiche les montants mesurés et la largeur ; aucun cadre de dimensions n’est utilisé pour inventer cette ouverture. Le détecteur visuel du pictogramme de tunnel n’est activé qu’avec l’assistance caméra hors compétition, à l’arrêt. Il ne commande aucun moteur, n’est pas créé par le lancement LiDAR et ne valide aucun point du barème.

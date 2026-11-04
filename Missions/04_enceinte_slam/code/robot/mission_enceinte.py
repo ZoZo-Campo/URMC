@@ -25,6 +25,9 @@ from ament_index_python.packages import get_package_share_directory
 from urmc_core.enclosure_map import Grid,astar,plan_goal,path_command,swept_clear,validate_route,bounded_grid
 from urmc_core.enclosure_layout import validate_layout,contains,outside
 from urmc_core.live_navigation import LocalView,LiveGridLayer,CameraWatch,validate_destination
+from urmc_core.entrance import EntranceGate
+from urmc_core.tunnel_sign import detect_tunnel
+from urmc_core.road_signs import VisualConfirmation
 from urmc_core.operator_settings import current
 from map_store import MapStore,slug
 ROOT=_WORKSPACE
@@ -47,7 +50,7 @@ class EnclosureNode(Node):
         self.prefix='/urmc_sim/m04_slam' if simulation else '';self.topic=lambda name:self.prefix+'/'+name
         self.tf=Buffer();self.listener=TransformListener(self.tf,self)
         self.grid=None;self.map_id=None;self.mode='off';self.selected=None;self.route={};self.enclosure=None;self.zone=None;self.navigation_grid=None;self.revision=0;self.active=False;self.confirmed=False
-        self.task='enclosure';self.local_view=None;self.local_origin=None;self.local_fault=False;self.odom_pose=None;self.odom_motion=None;self.measured_speed=0.;self.measured_rotation=0.;self.live_layer=LiveGridLayer();self.camera_enabled=False;self.camera_watch=CameraWatch();self.camera_sub=None
+        self.entrance=EntranceGate();self.entry_goal=None;self.sign_confirmation=VisualConfirmation();self.sign_candidate={};self.task='enclosure';self.local_view=None;self.local_origin=None;self.local_fault=False;self.odom_pose=None;self.odom_motion=None;self.measured_speed=0.;self.measured_rotation=0.;self.live_layer=LiveGridLayer();self.camera_enabled=False;self.camera_watch=CameraWatch();self.camera_sub=None
         self.phase='IDLE';self.reason='Créer une carte ou charger une carte existante.';self.pub=None;self.locks=[]
         self.raw_scan=None;self.scan_received=0.;self.odom_received=0.;self.odom_stamp=0.;self.pose=None;self.pose_stamp=0.;self.local_points=[];self.world_points=[]
         self.scan_good=False;self.sensor_reason='Attente LiDAR / TF';self.map_received=0.;self.previous_pose=None;self.path=[];self.plan=None;self.plan_time=0.;self.plan_target=None;self.last_replan=0.;self.epoch=0
@@ -102,7 +105,9 @@ class EnclosureNode(Node):
         if self.grid is None:return None
         return self.live_layer.apply(self.grid) if self.mode=='localization' else self.grid
     def camera_state(self):
-        return self.camera_watch.report(time.monotonic(),current()['m4_camera_light']) if self.camera_enabled else dict(enabled=False,allowed=True,state='DESACTIVEE')
+        if not self.camera_enabled:return dict(enabled=False,allowed=True,state='DESACTIVEE')
+        now=time.monotonic();recent=self.sign_confirmation.last_time is not None and 0<=now-self.sign_confirmation.last_time<.35
+        return dict(self.camera_watch.report(now,current()['m4_camera_light']),tunnel=self.sign_candidate if recent else {},tunnel_confirmed=recent and self.sign_confirmation.confirmed,tunnel_frames=self.sign_confirmation.frames if recent else 0)
     def camera(self,msg):
         clock=self.get_clock().now().nanoseconds/1e9
         if not self.camera_enabled or not 0<=clock-stamp(msg)<.35:return
@@ -112,11 +117,13 @@ class EnclosureNode(Node):
             if image is None:return
             moving=abs(self.v)>.005 or abs(self.w)>.03 or self.measured_speed>.01 or self.measured_rotation>.03
             self.camera_watch.image(image,time.monotonic(),stamp(msg),moving=moving,change_threshold=current()['m4_camera_change'])
+            if not self.active and not moving:
+                self.sign_candidate=detect_tunnel(image);self.sign_confirmation.update(self.sign_candidate,time.monotonic(),stamp(msg),current())
         except Exception:pass
     def set_camera(self,data):
         if type(data.get('enabled')) is not bool:raise ValueError('Booléen attendu pour l’assistance caméra.')
         if self.pub or self.active:raise ValueError('Arrêter avant de changer l’assistance caméra.')
-        self.camera_enabled=data['enabled'];self.camera_watch=CameraWatch()
+        self.camera_enabled=data['enabled'];self.camera_watch=CameraWatch();self.sign_confirmation=VisualConfirmation();self.sign_candidate={}
         if self.camera_sub is not None:self.destroy_subscription(self.camera_sub);self.camera_sub=None
         if self.camera_enabled:self.camera_sub=self.create_subscription(CompressedImage,self.topic('image_raw/compressed'),self.camera,self.sensor_qos)
         return {'success':True,'message':'Assistance caméra d’essai activée ; attendre une image récente.' if self.camera_enabled else 'Assistance caméra désactivée : navigation LiDAR uniquement.'}
@@ -191,7 +198,7 @@ class EnclosureNode(Node):
             self.route=validate_route(self.route,self.navigation_grid,self.radius())
         else:validate_destination(self.route,self.navigation_grid,self.radius())
         if self.mode=='local' and any(math.hypot(*point)>3. for point in (self.route.values() if task=='enclosure' else [self.route['exit']])):raise ValueError('Sans SLAM, garder les objectifs à moins de 3 m de l’origine.')
-        self.task=task;self.plan_target=None
+        self.task=task;self.plan_target=None;self.entrance=EntranceGate();self.entry_goal=None
         self.stop_navigation();self.acquire_motors();self.active=True;self.phase='GOAL' if task=='goal' else 'ENTRY';self.started=time.monotonic();self.entered=self.started if task=='goal' else None;self.finished_at=None;self.last_replan=0.;self.plan=None;self.epoch+=1;self.reason='Calcul du trajet vers l’arrivée' if task=='goal' else 'Calcul du trajet vers l’entrée'
         return {'success':True,'message':'Navigation vers le point d’arrivée démarrée.' if task=='goal' else 'Mission 4 démarrée : entrée → intérieur → sortie.'}
     def radius(self):cfg=current();return cfg['m4_radius']+cfg['m4_margin']
@@ -257,13 +264,18 @@ class EnclosureNode(Node):
             elif not fresh:self.reason=self.sensor_reason;self.path=[]
             elif self.grid is None:self.reason='Carte absente'
             else:
-                target=self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit','GOAL':'exit'}[self.phase]]
-                if math.dist(self.pose[:2],target)<cfg['m4_goal_tolerance']:
-                    if self.phase in ('EXIT','GOAL'):self.stop_navigation('DONE','Arrivée atteinte ; robot arrêté')
-                    else:
-                        if self.phase=='ENTRY':self.entered=now
-                        self.phase='INSIDE' if self.phase=='ENTRY' else 'EXIT';self.plan_target=None;self.epoch+=1;self.path=[];self.plan=None;self.last_replan=0.
-                if self.active:
+                if self.phase=='OPENING':
+                    found=self.entrance.update(self.world_points,self.pose,self.route['inside'],self.radius(),now,stamp(self.raw_scan),cfg)
+                    self.reason=found['reason']+' · '+str(found['frames'])+'/'+str(cfg['m4_entry_confirm_frames'])+' scans'
+                    if found.get('confirmed'):
+                        self.entry_goal=found['goal'];self.entered=now;self.phase='ENTER';self.epoch+=1;self.path=[];self.plan=None;self.plan_target=None;self.last_replan=0.
+                else:
+                    target=self.entry_goal if self.phase=='ENTER' else self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit','GOAL':'exit'}[self.phase]]
+                    if math.dist(self.pose[:2],target)<cfg['m4_goal_tolerance']:
+                        if self.phase in ('EXIT','GOAL'):self.stop_navigation('DONE','Arrivée atteinte ; robot arrêté')
+                        else:
+                            self.phase={'ENTRY':'OPENING','ENTER':'INSIDE','INSIDE':'EXIT'}[self.phase];self.plan_target=None;self.epoch+=1;self.path=[];self.plan=None;self.last_replan=0.
+                if self.active and self.phase!='OPENING':
                     if self.plan is not None and self.plan.done():
                         try:
                             epoch,planned_at,(path,actual_goal)=self.plan.result()
@@ -271,7 +283,7 @@ class EnclosureNode(Node):
                         except Exception:self.path=[]
                         self.plan=None
                     if self.plan is None and now-self.last_replan>.45:
-                        epoch=self.epoch;grid=bounded_grid(self.working_grid(),self.zone);self.navigation_grid=grid;pose=self.pose;points=list(self.world_points);radius=self.radius();target=self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit','GOAL':'exit'}[self.phase]]
+                        epoch=self.epoch;grid=bounded_grid(self.working_grid(),self.zone);self.navigation_grid=grid;pose=self.pose;points=list(self.world_points);radius=self.radius();target=self.entry_goal if self.phase=='ENTER' else self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit','GOAL':'exit'}[self.phase]]
                         self.plan=self.pool.submit(lambda e,g,p,t,r,o,n,near,local:(e,n,plan_goal(g,p[:2],t,r,o,near,allow_start=local)),epoch,grid,pose,target,radius,points,now,self.phase=='INSIDE',self.mode=='local');self.last_replan=now
                     if self.path and now-self.plan_time<1.2:
                         v,w=path_command(self.pose,self.path,cfg['m4_speed']);self.reason='Trajet recalculé avec les obstacles LiDAR'
@@ -302,7 +314,7 @@ class EnclosureNode(Node):
         if now-self.last_status>.3:
             self.status.publish(String(data=json.dumps(self.summary())));self.last_status=now
     def summary(self):
-        return dict(available=True,simulation=self.simulation,slam_available=self.slam_share is not None,active=self.active,phase=self.phase,reason=self.reason,mode=self.mode,navigation_mode='local' if self.mode=='local' else 'slam',task=self.task,camera=self.camera_state(),map_id=self.map_id,selected=self.selected,confirmed=self.confirmed,v=self.v,w=self.w,job=self.job,robot_id=int(os.environ.get('URMC_ROBOT_ID','11')))
+        return dict(available=True,simulation=self.simulation,slam_available=self.slam_share is not None,active=self.active,phase=self.phase,reason=self.reason,mode=self.mode,navigation_mode='local' if self.mode=='local' else 'slam',task=self.task,entrance=self.entrance.result,camera=self.camera_state(),map_id=self.map_id,selected=self.selected,confirmed=self.confirmed,v=self.v,w=self.w,job=self.job,robot_id=int(os.environ.get('URMC_ROBOT_ID','11')))
     def cache_snapshot(self,fresh):
         data=self.summary();data.update(pose=self.pose,pose_age=max(0.,self.get_clock().now().nanoseconds/1e9-self.pose_stamp) if self.pose_stamp else None,
             scan_age=max(0.,time.monotonic()-self.scan_received) if self.scan_received else None,odom_age=max(0.,time.monotonic()-self.odom_received) if self.odom_received else None,

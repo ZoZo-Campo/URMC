@@ -1,4 +1,4 @@
-"""Mission 2 : observation blue rectangle by default; --run enables supervised movement."""
+"""Mission officielle 1 : observation blue rectangle by default; --run enables supervised movement."""
 # Works both from the mission folder and from the stable kit_robot entry point.
 from pathlib import Path as _LayoutPath
 import sys as _layout_sys
@@ -26,7 +26,8 @@ if __name__=='__main__':load_environment()
 import argparse,fcntl,json,math,signal,time
 import cv2,numpy as np,rclpy
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import QoSProfile,ReliabilityPolicy
+qos_profile_sensor_data=QoSProfile(depth=1,reliability=ReliabilityPolicy.BEST_EFFORT)
 from sensor_msgs.msg import CompressedImage
 from nav_msgs.msg import Odometry
 from std_msgs.msg import String
@@ -36,13 +37,14 @@ from urmc_core.barrier import detect,annotate,OpeningGate
 from suivi_piste_camera import prepare_drivers,lane_details,LaneTracker
 from vision_overlay import diagnostic_view
 from urmc_core.vision import analyze
+from urmc_core.road_signs import FinishGate
 from urmc_core.operator_settings import current as settings
 cv2.setNumThreads(1)
 
 class BarrierNode(Node):
-    def __init__(self,drive=False,seconds=0.,ignore_barrier=False):
+    def __init__(self,drive=False,seconds=0.,ignore_barrier=False,finish=None):
         super().__init__('urmc_blue_barrier')
-        self.ignore_barrier=ignore_barrier;self.drive=drive;self.limit=seconds;self.created=time.monotonic();self.done=False
+        self.finish=FinishGate((finish or os.environ.get('URMC_FINISH_TARGET','both')) if ignore_barrier else 'checker');self.finish_event=None;self.ignore_barrier=ignore_barrier;self.drive=drive;self.limit=seconds;self.created=time.monotonic();self.done=False
         self.pub=self.create_publisher(Twist,'/cmd_vel',1) if drive else None
         self.video=self.create_publisher(CompressedImage,'/urmc/barrier/image/compressed',qos_profile_sensor_data)
         self.status=self.create_publisher(String,'/urmc/barrier/status',1)
@@ -53,16 +55,17 @@ class BarrierNode(Node):
         self.create_timer(.05,self.tick)
         self.gate=OpeningGate(allow_disappearance=True);self.ready=False;self.received=0.;self.image_age=None;self.previous_stamp=None
         self.result=dict(position='UNKNOWN',reason='attente camera');self.error=None;self.last_processed=0.;self.last_preview=0.
-        self.lane_valid=0;self.filtered_error=None;self.last_logged_state=None;self.tracker=LaneTracker();self.barrier_blocked=False;self.opening_validated=False;self.finish_count=0;self.lane_reason="attente piste";self.distance=0.;self.cross_start=None;self.previous_pose=None;self.odom_received=0.
+        self.lane_valid=0;self.filtered_error=None;self.last_logged_state=None;self.tracker=LaneTracker();self.barrier_blocked=False;self.opening_validated=False;self.finish_count=0;self.lane_reason="attente piste";self.distance=0.;self.cross_start=None;self.previous_pose=None;self.odom_received=0.;self.odom_stamp=None
         self.v=0.;self.w=0.;self.last_log=0.;self.state='OBSERVATION' if not drive else 'WAIT_CLOSED'
     def stop_request(self,request,response):
         self.stop('arret demande');response.success=True;response.message='Mission barriere arretee';return response
     def stop(self,why):
         if self.pub:self.pub.publish(Twist())
-        self.done=True;self.state='STOP';print('ARRET : '+why,flush=True)
+        self.done=True;self.state='STOP';self.v=self.w=0.;self.status.publish(String(data=json.dumps(dict(state='STOP',reason=why,v=0.,w=0.,finish=self.finish.report,event=self.finish_event))));print(json.dumps(dict(state='STOP',reason=why,v=0.,w=0.,event=self.finish_event)),flush=True);print('ARRET : '+why,flush=True)
     def odom(self,msg):
         now=time.monotonic();age=self.get_clock().now().nanoseconds/1e9-msg.header.stamp.sec-msg.header.stamp.nanosec/1e9
-        p=msg.pose.pose.position
+        p=msg.pose.pose.position;stamp=msg.header.stamp.sec+msg.header.stamp.nanosec/1e9
+        if self.odom_stamp is not None and stamp<=self.odom_stamp:return
         if not 0<=age<.3 or not all(math.isfinite(v) for v in (p.x,p.y)):return
         if self.previous_pose is not None:
             step=math.hypot(p.x-self.previous_pose[0],p.y-self.previous_pose[1])
@@ -71,7 +74,7 @@ class BarrierNode(Node):
                 if self.drive:self.stop('saut odometrique')
                 return
             self.distance+=step
-        self.previous_pose=(p.x,p.y);self.odom_received=now
+        self.previous_pose=(p.x,p.y);self.odom_received=now;self.odom_stamp=stamp
     def image(self,msg):
         now=time.monotonic()
         if now-self.last_processed<.09:return
@@ -83,7 +86,7 @@ class BarrierNode(Node):
             image=cv2.imdecode(np.frombuffer(msg.data,np.uint8),cv2.IMREAD_COLOR)
             if image is None:return
             stamp=(msg.header.stamp.sec,msg.header.stamp.nanosec)
-            if stamp==self.previous_stamp:return
+            if self.previous_stamp is not None and stamp<=self.previous_stamp:return
             self.previous_stamp=stamp;self.result=detect(image) if not self.ignore_barrier else dict(position="UNKNOWN",visible=False,reason="suivi sans barriere")
             self.gate.delay=settings()["opening_delay"]
             self.ready=self.gate.update(self.result,now,stamp)
@@ -95,38 +98,41 @@ class BarrierNode(Node):
             valid=self.error is not None and abs(self.error)<=.65
             self.lane_valid=self.lane_valid+1 if valid else 0
             self.filtered_error=(self.error if self.filtered_error is None else .35*self.error+.65*self.filtered_error) if valid else None
-            self.finish_count=self.finish_count+1 if analyze(image)['checker'] else 0
+            self.finish_event=self.finish.update(image,analyze(image)['checker'],now,stamp,settings());self.finish_count=self.finish.checker.frames
             if now-self.last_preview>=.2:
                 out=CompressedImage();out.header=msg.header;out.format='jpeg'
-                ok,jpeg=cv2.imencode('.jpg',diagnostic_view(image,lane,self.result,robot_id=int(os.environ.get('URMC_ROBOT_ID','11'))),[cv2.IMWRITE_JPEG_QUALITY,50])
+                ok,jpeg=cv2.imencode('.jpg',diagnostic_view(image,lane,self.result,robot_id=int(os.environ.get('URMC_ROBOT_ID','11')),finish=self.finish.report),[cv2.IMWRITE_JPEG_QUALITY,50])
                 if ok:out.data=jpeg.tobytes();self.video.publish(out)
                 self.last_preview=now
         except Exception as exc:
             self.ready=False;self.result=dict(position='UNKNOWN',reason=str(exc));self.error=None
     def tick(self):
         if self.done:return
-        now=time.monotonic();fresh=now-self.received<.25 and self.image_age is not None and 0<=self.image_age<.25
+        now=time.monotonic();source_age=self.get_clock().now().nanoseconds/1e9-self.previous_stamp[0]-self.previous_stamp[1]/1e9 if self.previous_stamp else math.inf;fresh=0<=now-self.received<.25 and 0<=source_age<.25
         v=w=0.
         if self.drive:
             if self.count_publishers(self.pub.topic_name)!=1:return self.stop('autre commande moteur detectee')
             if self.limit>0 and now-self.created>self.limit:return self.stop('limite de temps atteinte')
             if not fresh:self.state='WAIT_CAMERA';self.ready=False;self.gate.since=None;self.gate.frames=0;self.lane_valid=0;self.filtered_error=None
-            elif self.finish_count>=3:return self.stop('damier confirme sur trois images')
+            elif self.finish_event:return self.stop(self.finish_event['reason'])
             elif self.barrier_blocked:self.state='WAIT_OPEN'
             elif self.result.get('position')=='UNKNOWN' and self.result.get('visible',False):self.state='WAIT_BARRIER_VIEW'
-            elif now-self.odom_received>=.3:self.state='WAIT_ODOM';self.lane_valid=0
+            elif not 0<=now-self.odom_received<.3 or self.odom_stamp is None or not 0<=self.get_clock().now().nanoseconds/1e9-self.odom_stamp<.3:self.state='WAIT_ODOM';self.lane_valid=0
             elif self.error is None:self.state='WAIT_LANE'
             elif abs(self.error)>.65:self.state='WAIT_LANE_OFFSET'
             elif self.lane_valid<3:self.state='CONFIRM_LANE'
             else:
                 if self.cross_start is None:self.cross_start=self.distance
                 self.state='FOLLOW_AFTER_BARRIER' if self.gate.closed_seen else 'FOLLOW';cfg=settings();error=self.filtered_error if self.filtered_error is not None else self.error;v=cfg["speed"]/(1+3*abs(error));w=max(-.2,min(.2,-cfg["steering_gain"]*error))
+            candidate=self.finish.report.get('stop',{})
+            if v>0 and candidate.get('visible') and not candidate.get('ready_to_stop'):
+                v=min(v,.025);self.state='APPROACH_STOP'
             self.v=0. if v==0 else self.v+max(-.005,min(.0015,v-self.v))
             self.w=0. if v==0 else self.w+max(-.025,min(.025,w-self.w))
             cmd=Twist();cmd.linear.x=self.v;cmd.angular.z=self.w;self.pub.publish(cmd)
         elif self.limit>0 and now-self.created>self.limit:return self.stop('fin observation')
         data=dict(algorithm='follow-robust' if self.ignore_barrier else 'barrier',mode='roulage' if self.drive else 'observation',state=self.state,fresh=fresh,barrier=self.result,
-            closed_seen=self.gate.closed_seen,opening_confirmed=self.ready,barrier_blocked=self.barrier_blocked,lane_reason=self.lane_reason,error=self.error,lane_valid_frames=self.lane_valid,v=self.v,w=self.w)
+            finish=self.finish.report,event=self.finish_event,closed_seen=self.gate.closed_seen,opening_confirmed=self.ready,barrier_blocked=self.barrier_blocked,lane_reason=self.lane_reason,error=self.error,lane_valid_frames=self.lane_valid,v=self.v,w=self.w)
         self.status.publish(String(data=json.dumps(data)))
         if self.state!=self.last_logged_state or now-self.last_log>2:
             print(json.dumps(data),flush=True);self.last_log=now;self.last_logged_state=self.state
@@ -149,6 +155,7 @@ def main():
     parser=argparse.ArgumentParser(description='Rectangle bleu : horizontal ferme, vertical leve.')
     parser.add_argument('--run',action='store_true',help='Autoriser le roulage ; par defaut observation sans commande moteur.')
     parser.add_argument('--seconds',type=float,default=None)
+    parser.add_argument('--finish',choices=['both','checker','stop'],default=None,help='Mission 0 : cible d’arrêt, both = damier ou STOP.')
     parser.add_argument('--ignore-barrier',action='store_true',help='Suivi robuste sans gestion du panneau bleu.')
     args=parser.parse_args()
     if args.seconds is not None and not 0<=args.seconds<=180:parser.error('Duree entre 0 et 180 secondes ; 0 = sans limite.')
@@ -160,7 +167,7 @@ def main():
         except BlockingIOError:raise SystemExit('Une mission est deja active. Utiliser STOP avant de changer de mode.')
         locks.append(handle)
     prepare_drivers();preview(workspace)
-    rclpy.init();node=BarrierNode(args.run,args.seconds if args.seconds is not None else 0.,args.ignore_barrier)
+    rclpy.init();node=BarrierNode(args.run,args.seconds if args.seconds is not None else 0.,args.ignore_barrier,args.finish)
     for sig in (signal.SIGINT,signal.SIGTERM,signal.SIGHUP):signal.signal(sig,lambda signum,frame:node.stop('interruption'))
     print('Video annotee : port 8081. '+('ROULAGE : maximum '+str(settings()['speed']*100)+' cm/s.' if args.run else 'OBSERVATION : aucune publication moteur.'),flush=True)
     try:

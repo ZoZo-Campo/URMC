@@ -12,7 +12,7 @@ $('speedForm').onsubmit=async e=>{
 };
 function renderMissionActivity(){
  const modes={
-  'follow-robust':{id:'0',title:'Suivi de piste + damier'},'follow-classic':{id:'0',title:'Suivi historique · 90 secondes'},
+  'follow-robust':{id:'0',title:'Suivi de piste + arrêt choisi'},'follow-classic':{id:'0',title:'Suivi historique · 90 secondes'},
   barrier:{id:'1',title:'Piste + barrière'},observe:{id:'1',title:'Observation de la barrière',observation:true},
   priority:{id:'2',title:'Priorité à droite'},'priority-observe':{id:'2',title:'Observation caméra + LiDAR',observation:true},
   enclosure:{id:'4',title:'Entrée, intérieur et sortie de l’enceinte'}

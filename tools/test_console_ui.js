@@ -43,6 +43,16 @@ const idle={robot_id:11,connected:true,mode:'idle',job:{},robots:{},settings:{},
  const next=app.run("start('manual')");const during=app.run('poll()');app.starts.at(-1).resolve(response({lease:'third'}));await next;
  app.stateRequests.at(-1).resolve(response(idle));await during;assert.equal(app.run('lease'),'third');
  console.log('PASS: stale polls, delayed activation, STOP, release and manual reload');
+ // A new STOP choice must reach the supervisor and must never be silently ignored by an old robot.
+ app.element('followAlgorithm').value='follow-robust';app.element('followFinish').value='stop';
+ const count=app.starts.length;await app.element('followStart').onclick();assert.equal(app.starts.length,count);
+ app.run("state.features={finish_targets:['both','checker','stop']}");
+ const withStop=app.element('followStart').onclick();assert.equal(app.posts.at(-1).data.finish,'stop');
+ app.starts.at(-1).resolve(response({success:true}));await withStop;
+ assert(!app.posts.some(p=>p.url==='/api/settings'),'choosing the finish must not rewrite shared settings');
+ app.element('quickAlgorithm').value='follow-robust';
+ const quick=app.element('quickStart').onclick();assert.equal(app.posts.at(-1).data.finish,'both');app.starts.at(-1).resolve(response({success:true}));await quick;
+ console.log('PASS: finish choice, quick launch and old-version rejection');
  // Indicative dimensions must neither be required nor gate the Run button.
  app.element('mapNavMode').value='local';app.element('mapJourney').value='enclosure';app.element('mapSource').value='simulation';
  vm.runInContext(fs.readFileSync(path.join(root,'tools/console/mapping.js'),'utf8'),app.ctx);

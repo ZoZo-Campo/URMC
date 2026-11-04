@@ -10,6 +10,8 @@ La barrière est un rectangle bleu, horizontal quand elle est fermée et vertica
 
 La vidéo affiche surfaces, angle, contours, barycentres et masques couleur. Les réglages de teinte, surface minimale, dominance et confirmation sont dans l’interface. Une ouverture validée ou un mouvement d’ouverture suivi d’une disparition confirmée autorise la reprise ; une simple absence initiale n’est pas une preuve d’ouverture.
 
+La caméra utilise uniquement le dernier message compressé (profondeur 1). Les horodatages des images et de l’odométrie sont revérifiés pendant la commande ; les messages répétés ou anciens ne confirment pas l’arrivée.
+
 Le suivi garde les deux bordures, dans les deux sens de couleur. Il n’a pas de durée totale maximale par défaut ; arrêt au damier ou STOP. L’odométrie et les images doivent rester récentes.
 
 ## État et points à gagner

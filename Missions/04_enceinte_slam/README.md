@@ -11,7 +11,7 @@ Les deux modes utilisent le même pilote ROS 2 et les mêmes contrôles LiDAR. A
 
 ## État et points à gagner
 
-- **1 point :** détection du panneau d’entrée ; **non développée**, règle de capteur à clarifier.
+- **1 point :** détection du panneau d’entrée ; détecteur visuel disponible en préparation hors compétition ; règle de capteur à clarifier et panneau réel à tester.
 - **3 points :** entrée sans contact ; **3 points :** sortie ; **bonus +3 :** avec obstacles. Navigation sur repères préparés testée en simulation, à valider sur le robot.
 - **Prochain test :** placer A dehors avant l’entrée, B dedans, C dehors après la sortie ; vérifier localisation, marge et obstacles réels.
 
@@ -27,7 +27,7 @@ Pour le parcours complet, placer réellement le robot dehors, **A** avant l’ou
 
 Le panneau illustré en **figure 6, page 6** représente une arche de tunnel. Le barème, page 9, attribue **1 point** à sa détection. Cependant, la section **4.2.1, page 5** demande de détecter l’**ouverture** au LiDAR et interdit la caméra durant cette mission. Le document ne précise pas comment concilier la reconnaissance du panneau et cette interdiction, ni si une reconnaissance caméra avant l’entrée est autorisée. Faire confirmer cette étape par les organisateurs avant de choisir son capteur.
 
-**La reconnaissance automatique du panneau n’est pas implémentée.** Poser A manuellement ou charger une carte ne réalise pas cette détection et ne valide pas ce point du barème. Le pilote actuel réalise la navigation sur des repères préparés, avec évitement LiDAR.
+**Un détecteur géométrique du pictogramme est maintenant disponible hors compétition.** Activer explicitement l’assistance caméra, robot immobile : le carré, l’arche et les deux montants du dessin doivent être reconnus sur plusieurs images fraîches et cohérentes. L’interface affiche candidat/confirmé ; cela ne commande aucun mouvement et ne constitue pas une validation du point. Désactiver l’assistance avant l’épreuve LiDAR. Le détecteur a été essayé sur l’illustration fournie et des images synthétiques ; le panneau réel reste à tester. Poser A manuellement ou charger une carte ne réalise pas cette détection et ne valide pas ce point du barème. Le pilote actuel réalise la navigation sur des repères préparés, avec évitement LiDAR.
 
 ## Une seule fois : préparer
 
@@ -60,7 +60,7 @@ Sur le Mac, pour le banc SLAM complet : double-cliquer `Code/tools/preparer_slam
 4. Vérifier zone et repères puis **Lancer la mission 4 avec moteurs**. Le mode manuel précédent est arrêté, son autorisation est révoquée, puis le pilote de l’enceinte prend seul les moteurs.
 5. Surveiller la carte et la décision. **STOP ENCEINTE**, le STOP rouge ou STOP TOUS arrêtent l’essai. Le SLAM reste disponible pour observer ou préparer le suivant.
 
-La mission vise d’abord l’entrée, puis le point intérieur, puis la sortie. Le chronomètre de 60 s démarre à l’atteinte du repère d’entrée, donc de façon conservatrice avant le franchissement complet. La sortie est validée par l’atteinte du repère extérieur choisi ; c’est pourquoi sa calibration et la zone autorisée comptent.
+La mission vise d’abord l’entrée, puis le point intérieur, puis la sortie. Au repère A, le robot s’arrête pour vérifier les deux montants au LiDAR. Trois scans distincts doivent confirmer le passage et sa largeur doit dépasser le diamètre avec marge. Le robot vise ensuite un point calculé après le plan de l’ouverture, puis B et C. Un passage bloqué ou incomplet n’est pas validé. Le chronomètre de 60 s démarre à la confirmation du passage, avant son franchissement complet. La sortie est validée par l’atteinte du repère extérieur choisi ; c’est pourquoi sa calibration et la zone autorisée comptent.
 
 Le planificateur A* utilise une carte avec empreinte du robot et marge, et une couche LiDAR actualisée. Un nouvel obstacle bloque immédiatement les cellules concernées. Un ancien obstacle de la carte est retiré de cette couche après trois scans distincts montrant le passage libre. Une zone masquée ne devient pas libre par supposition ; la carte enregistrée reste intacte et les zones inconnues restent interdites. Le chemin est recalculé environ deux fois par seconde. Un repère intérieur occupé peut être remplacé par un point voisin jusqu’à 25 cm, en restant dans la zone autorisée. Les obstacles ne doivent donc pas être présents dans la carte préalable pour être évités. Si aucun passage connu n’est suffisamment large, le robot attend à l’arrêt ; il ne force pas le passage.
 
@@ -104,6 +104,8 @@ Les cartes du banc persistent dans le volume Docker `urmc-cartes-simulation`. Ut
 ## Code associé
 
 - `code/robot/mission_enceinte.py` : SLAM, localisation TF, services HTTP privés et pilote moteur ROS 2.
+- `code/perception/tunnel_sign.py` : pictogramme de tunnel, uniquement en préparation caméra explicite.
+- `code/perception/entrance.py` : deux montants mesurés, largeur libre et confirmation de l’entrée sur plusieurs scans.
 - `code/perception/enclosure_layout.py` : cadre indicatif et repérage visuel, sans contrainte sur le trajet.
 - `code/perception/live_navigation.py` : couche LiDAR vivante, vue sans SLAM et assistance caméra d’essai.
 - `code/perception/enclosure_map.py` : grille métrique, inflation, zone, A*, suivi et contrôle de collision.
@@ -137,6 +139,6 @@ Ces vues proviennent du SLAM sur scans synthétiques du banc. Elles ne constitue
 - À l’intérieur, trouver l’issue et sortir dans un délai de 1 minute.
 - Répéter l’entrée/sortie avec des obstacles placés aléatoirement.
 
-Barème : 1 point : panneau d’entrée (non implémenté, règle capteur à clarifier) ; 3 points : entrée ; 3 points : sortie ; bonus +3 avec obstacles. −1 si paroi touchée, −1 si chute d’obstacle.
+Barème : 1 point : panneau d’entrée (détecteur visuel hors compétition, règle capteur et validation réelle à clarifier) ; 3 points : entrée ; 3 points : sortie ; bonus +3 avec obstacles. −1 si paroi touchée, −1 si chute d’obstacle.
 
 Les [PDF officiels fournis](../../docs/documents/) restent la référence.

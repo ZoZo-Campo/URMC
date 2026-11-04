@@ -3,7 +3,7 @@ import cv2,numpy as np
 from urmc_core.operator_settings import current
 from urmc_core.barrier import blue_mask
 
-def diagnostic_view(image,lane,barrier,robot_id=None,priority=None):
+def diagnostic_view(image,lane,barrier,robot_id=None,priority=None,finish=None):
  out=cv2.resize(image,(320,240)).copy();cfg=current();hsv=cv2.cvtColor(out,cv2.COLOR_BGR2HSV)
  top,bottom=lane.get('roi',[156,230]);white_v=lane.get('white_v',185)
  yellow=cv2.inRange(hsv,(cfg['yellow_low'],90,65),(cfg['yellow_high'],255,255))
@@ -44,6 +44,9 @@ def diagnostic_view(image,lane,barrier,robot_id=None,priority=None):
   panel=cv2.resize(panel,(160,120));cv2.rectangle(panel,(0,0),(159,15),(18,30,28),-1)
   cv2.putText(panel,title,(4,11),0,.28,(240,240,240),1);panels.append(panel)
  result=np.hstack((out,np.vstack(panels)))
+ if finish and finish.get('stop',{}).get('visible'):
+  candidate=finish['stop'];x,y,w,h=candidate['bbox'];cv2.rectangle(result,(round(x*1.5),round(y*1.5)),(round((x+w)*1.5),round((y+h)*1.5)),(30,60,255),2)
+  cv2.putText(result,'STOP %d images'%finish.get('stop_frames',0),(8,65),0,.5,(30,60,255),1)
  if priority:
   for key,color in [('near',(80,220,120)),('far',(240,180,70))]:
    roi=priority.get('vision',{}).get(key,{}).get('roi')

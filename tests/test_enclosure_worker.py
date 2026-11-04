@@ -122,3 +122,35 @@ def test_location_badge_accounts_for_robot_footprint(actor):
  actor.grid=Grid(np.zeros((100,120)),.04,(-1.,-2.,0.));actor.enclosure=dict(width=1.,depth=1.25,origin=[0.,-.5,0.])
  for point,location in [((-.4,0,0),'outside'),((-.05,0,0),'boundary'),((.5,0,0),'inside')]:
   actor.pose=point;actor.cache_snapshot(True);assert actor.snapshot()['enclosure_location']==location
+
+
+def test_enclosure_waits_for_measured_jambs_before_committing_to_entry(actor,monkeypatch):
+ from sensor_msgs.msg import LaserScan
+ from urmc_core.operator_settings import DEFAULTS
+ import numpy as np
+ from urmc_core.enclosure_map import Grid
+ actor.grid=Grid(np.zeros((100,120)),.04,(-1.,-2.,0.));actor.zone=[-.7,-1.,2.,1.];actor.map_id='m';actor.mode='localization';actor.confirmed=True
+ actor.route=dict(entry=[-.18,0.],inside=[.7,0.],exit=[1.58,0.]);actor.pose=(-.18,0,0)
+ actor.raw_scan=LaserScan();actor.raw_scan.header.stamp.sec=1
+ monkeypatch.setattr(actor,'sensors',lambda:(True,'test'))
+ actor.run_navigation('m');actor.tick()
+ assert actor.phase=='OPENING' and actor.v==0 and actor.entered is None
+ # Empty scans or a map alone cannot claim that the two jambs were observed.
+ actor.raw_scan.header.stamp.sec=2;actor.tick()
+ assert actor.phase=='OPENING' and actor.v==0 and not actor.entrance.result['confirmed']
+
+
+def test_tunnel_camera_detector_is_opt_in_stationary_and_never_claims_points(actor):
+ import cv2
+ from sensor_msgs.msg import CompressedImage
+ from test_road_signs import tunnel_image
+ assert actor.camera_sub is None and not actor.camera_state().get('tunnel_confirmed',False)
+ actor.set_camera(dict(enabled=True))
+ for _ in range(3):
+  m=CompressedImage();m.header.stamp=actor.get_clock().now().to_msg();m.format='jpeg';m.data=cv2.imencode('.jpg',tunnel_image())[1].tobytes();actor.camera(m);time.sleep(.09)
+ assert actor.camera_state()['tunnel_confirmed']
+ assert actor.pub is None and not actor.active
+ actor.sign_confirmation.last_time=time.monotonic()-1
+ assert not actor.camera_state()['tunnel_confirmed']
+ actor.set_camera(dict(enabled=False));assert actor.camera_sub is None and not actor.camera_enabled
+ assert 'tunnel_confirmed' not in actor.camera_state()

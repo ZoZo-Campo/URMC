@@ -137,6 +137,7 @@ for _ in range(30):
   if self.demo:
    if path=='/settings':self.demo_settings=validate(data)
    elif path=='/start':
+    if data.get('finish') is not None and (data.get('finish') not in ('both','checker','stop') or data.get('algorithm') not in ('follow-robust','follow-classic')):raise ValueError('Cible d’arrêt invalide.')
     if data.get('algorithm') not in ('manual','follow-robust','follow-classic','barrier','observe','priority','priority-observe','enclosure'):raise ValueError('Algorithme inconnu.')
     self.demo_mode=data['algorithm'];self.demo_lease=secrets.token_hex(16)
    elif path=='/stop':self.demo_mode='idle';self.demo_lease=None

@@ -22,14 +22,18 @@ def main():
         spin(1.);actor.start_local();spin(.8)
         assert actor.mode=='local' and actor.slam_process is None and actor.camera_sub is None
         goal=[1.98,0.];actor.set_route(dict(map_id=actor.map_id,key='exit',point=goal))
+        enclosure='--enclosure' in sys.argv
+        if enclosure:
+            for key,point in dict(entry=[.22,0.],inside=[1.38,.30]).items():actor.set_route(dict(map_id=actor.map_id,key=key,point=point))
         arena.set_parameters([Parameter('obstacles',value=True)]);spin(.5)
-        actor.run_navigation(actor.map_id,'goal');start=time.monotonic();detour=False;last=0
+        actor.run_navigation(actor.map_id,'enclosure' if enclosure else 'goal');start=time.monotonic();detour=False;last=0
         while time.monotonic()-start<58:
             executor.spin_once(timeout_sec=.005)
             if actor.pose and abs(actor.pose[1])>.18:detour=True
             if time.monotonic()-last>6:print(actor.phase,actor.pose,actor.reason,flush=True);last=time.monotonic()
             if actor.phase in ('DONE','FAULT','TIMEOUT'):break
         assert actor.phase=='DONE',(actor.phase,actor.pose,actor.reason)
+        if enclosure:assert actor.entrance.result['confirmed'] and actor.entrance.result['width']>2*actor.radius()
         assert detour and math.dist(actor.pose[:2],goal)<.08 and actor.route['exit']==goal
         assert actor.slam_process is None and not actor.get_publishers_info_by_topic('/map')
         assert not actor.get_publishers_info_by_topic('/cmd_vel')

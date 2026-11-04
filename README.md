@@ -22,7 +22,7 @@ Les numéros affichés sont ceux du barème officiel. Les dossiers/packages tech
 
 Chaque dossier de mission contient un README, son raccourci, son code et, lorsqu’ils existent, les liens vers ses tests. Les règles utiles sont intégrées au README. Le code spécifique n’est pas dupliqué.
 
-L’onglet **Missions** résume ce que fait le robot, les points de chaque action et les manques. Le détail des [exigences, points et vérifications restantes](docs/VALIDATION.md) est tenu à jour. L’arrêt au panneau STOP de la mission 0 et la détection du panneau de tunnel de la mission 4 ne sont pas encore intégrés au pilote réel.
+L’onglet **Missions** résume ce que fait le robot, les points de chaque action et les manques. Le détail des [exigences, points et vérifications restantes](docs/VALIDATION.md) est tenu à jour. L’arrêt au panneau STOP est intégré au suivi réel, avec choix du marqueur par essai. L’enceinte vérifie l’ouverture au LiDAR avant de la franchir. Le détecteur visuel du panneau du tunnel est disponible hors compétition ; son usage pour le point du barème reste à clarifier.
 
 ## Où sont les fichiers ?
 

@@ -54,6 +54,7 @@ while time.monotonic()-start<65:
  time.sleep(.2)
 assert s.get('enclosure',{}).get('width')==2. and s['enclosure']['depth']==2.5
 assert s['enclosure_location']=='outside'
+assert s.get('entrance',{}).get('confirmed') and len(s['entrance']['jambs'])==2
 assert s['phase']=='DONE',(phases,s['pose'],s['reason']);assert detour;assert s['remaining']>0
 print('OK : vrai SLAM, graph sauvegardé/rechargé, localisation confirmée, cadre indicatif sans contrainte, obstacle absent de la carte contourné, entrée/intérieur/sortie et arrêt.',flush=True)
 action('stop')

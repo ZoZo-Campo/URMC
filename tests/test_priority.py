@@ -159,3 +159,15 @@ def test_losing_only_one_border_does_not_authorize_blind_crossing():
     for i in range(7,30):
         c=b.step(observation(i*.1,lane_valid=False,lane_width=None,entry_eligible=False),i*.1,CFG)
         assert c.v==0 and b.state=='FOLLOW'
+
+
+def test_right_target_stops_approach_without_premature_crossing():
+ b=PriorityBrain()
+ for i in range(8):b.step(observation(i*.1,traffic=dict(known=True,blocked=False)),i*.1,CFG)
+ for i in range(8,15):
+  assert b.step(observation(i*.1,traffic=dict(known=True,blocked=True)),i*.1,CFG).v==0
+ assert b.state=='FOLLOW' and not b.handled and b.approach_wait
+ for i in range(15,23):c=b.step(observation(i*.1,traffic=dict(known=True,blocked=False)),i*.1,CFG)
+ assert c.v>0 and b.state=='FOLLOW' and not b.handled
+ for i in range(23,26):b.step(observation(i*.1,lane_valid=False,traffic=dict(known=True,blocked=False)),i*.1,CFG)
+ assert b.state=='YIELD' # the actual gap is still required for crossing

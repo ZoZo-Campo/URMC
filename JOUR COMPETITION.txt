@@ -93,7 +93,7 @@ Puis Connecter / préparer dans la console.
 8. Lancer mission 4 avec moteurs. STOP termine l’essai.
 
 Les obstacles ajoutés après cartographie sont pris en compte par les scans actuels.
-Le chrono de 60 s démarre au repère d’entrée. Aucun passage sûr : arrêt.
+Le chrono de 60 s démarre après confirmation de l’ouverture, avant franchissement. Aucun passage sûr : arrêt.
 Le LiDAR reste analysé : nouveaux obstacles bloqués, obstacles disparus confirmés par scans libres.
 Pour l’épreuve officielle : vidéo ET assistance caméra désactivées.
 
@@ -136,15 +136,40 @@ Burger : maximum constructeur 22 cm/s ; logiciel actuel limité à 8 cm/s en man
 et 15 cm/s en enceinte. Valeurs initiales 5 et 10 cm/s. Rotation manuelle : 0,4 rad/s.
 
 PANNEAU DU TUNNEL
-Panneau représentant une arche, figure 6 du règlement. Sa reconnaissance n’est pas codée.
+Panneau représentant une arche, figure 6 du règlement. Sa reconnaissance est proposée dans l’assistance caméra hors compétition.
 Le barème lui donne 1 point mais interdit aussi la caméra en mission 4 :
 faire préciser par les organisateurs si une détection avant l’entrée est autorisée.
 A placé à la main ne valide pas ce point.
 
-EXIGENCES ENCORE MANQUANTES
-Mission 0 : arrêt automatique au panneau STOP à intégrer au pilote réel (1 point).
-Le lancement actuel fait le suivi + arrêt au damier (critère de 4 points à valider sur place).
-Mission 4 : détection du panneau d’entrée non développée (1 point).
-Priorité et enceinte : validation physique complète encore nécessaire.
-Les points affichés sont ceux du barème ; seul le jury valide les points obtenus.
-Détail à jour : Code/docs/VALIDATION.md.
+ESSAIS POUR VISER LES POINTS — NOUVELLE VERSION
+Avant de tester ces ajouts, transférer volontairement avec Connecter / préparer.
+Aucun transfert ou mouvement n’a été lancé pendant le développement.
+
+Mission 0 (5 points possibles)
+Missions → 0 → Arrivée : damier (partie A) ou STOP (partie B) → Lancer la mission 0.
+Automatique accepte les deux ; le premier confirmé termine l’essai.
+Le cadre rouge et le nombre d’images sont visibles dans la vidéo.
+Paramètres → Mission 0 · Arrêt : surface, blanc et confirmation.
+
+Mission 1 (5 points possibles)
+Observer sans moteurs → vérifier le rectangle bleu → Lancer avec moteurs.
+Le robot attend la levée confirmée puis reprend les deux bordures.
+
+Mission 2 (5 points possibles)
+Observer caméra + LiDAR → vérifier la cible à droite → Lancer avec moteurs.
+Une cible confirmée peut arrêter dès l’approche. Après libération, le robot
+confirme le carrefour, traverse sans lignes et reprend les bordures proches.
+
+Mission 4 (6 points + 3 bonus, plus 1 point de panneau à clarifier)
+Préparer carte/vue locale, zone et A dehors / B dedans / C dehors → lancer.
+À A, arrêt et vérification de deux montants au LiDAR sur plusieurs scans.
+Passage trop étroit, incomplet ou occupé : attente, sans forcer.
+L’entrée mesurée, la largeur et la raison de pause apparaissent sur la carte.
+
+Panneau du tunnel : détecteur disponible dans l’assistance caméra d’essai,
+à activer explicitement à l’arrêt et hors compétition. Tester le vrai panneau.
+Faire confirmer son usage par les organisateurs ; caméra coupée en épreuve LiDAR.
+Aucun point n’est considéré comme acquis par le logiciel.
+
+Essais physiques et réglages réels encore nécessaires sur les quatre missions.
+STOP termine l’essai. Détail : Code/docs/VALIDATION.md.

@@ -17,7 +17,7 @@ Voir les [exigences et tests restants](../../docs/VALIDATION.md).
 
 1. Suivre les deux bordures jaune et blanche, quel que soit leur côté.
 2. Après au moins six images alignées, repérer une ouverture du carrefour : largeur augmentée ou les deux bordures perdues sur trois images distinctes. La perte d’une seule bordure provoque une pause et ne suffit pas à autoriser une traversée. Une image caméra absente/périmée provoque un arrêt ; elle ne confirme pas un carrefour.
-3. S’arrêter et mémoriser le cap d’approche. Surveiller au LiDAR la voie qui arrive de droite.
+3. Une cible confirmée à droite peut déjà arrêter l’approche, même si les bordures sont encore visibles. Attendre sa libération confirmée, reprendre l’approche puis confirmer le vrai carrefour ; cet arrêt anticipé ne termine pas la traversée. À l’entrée du carrefour, s’arrêter et mémoriser le cap d’approche. Surveiller au LiDAR la voie qui arrive de droite.
 4. Attendre tant qu’une cible du gabarit attendu est dans cette voie et à moins du seuil de distance au robot. Confirmer la libération sur plusieurs scans pendant une seconde.
 5. Traverser tout droit au cap mémorisé, corrigé par l’odométrie, même sans lignes. Reprendre le suivi après trois images valides des deux bordures et au moins 30 cm parcourus.
 6. Continuer sur la piste après ce carrefour. Une nouvelle perte des lignes impose un arrêt ; ce programme traite un seul carrefour par lancement.

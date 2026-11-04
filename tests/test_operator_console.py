@@ -225,3 +225,25 @@ def test_speed_settings_preserve_other_parameters_and_do_not_start(tmp_path):
  updated=controller.settings()
  assert updated['speed']==.035 and updated['white_s']==40
  assert controller.process is None and controller.mode=='idle'
+
+
+def test_finish_target_is_scoped_to_one_follow_run_and_never_to_barrier(tmp_path):
+ calls=[]
+ def launch(*args,**kwargs):calls.append(kwargs);return Process()
+ controller=Controller(tmp_path,launch)
+ controller.start('follow-robust',finish='stop')
+ assert calls[-1]['env']['URMC_FINISH_TARGET']=='stop'
+ assert controller.settings()['speed']==DEFAULTS['speed']
+ controller.start('barrier')
+ assert 'URMC_FINISH_TARGET' not in calls[-1]['env']
+ with pytest.raises(ValueError):controller.start('barrier',finish='stop')
+ with pytest.raises(ValueError):controller.start('follow-robust',finish='anything')
+ controller.start('follow-classic')
+ assert calls[-1]['env']['URMC_FINISH_TARGET']=='both'
+ controller.stop()
+
+
+def test_invalid_settings_stop_both_camera_and_enclosure_speeds(tmp_path,monkeypatch):
+ from urmc_core import operator_settings as settings
+ path=tmp_path/'settings.json';path.write_text('broken');monkeypatch.setenv('URMC_SETTINGS_FILE',str(path));monkeypatch.setattr(settings,'_checked',0.)
+ cfg=settings.current();assert cfg['speed']==0 and cfg['m4_speed']==0

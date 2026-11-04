@@ -4,6 +4,13 @@ from pathlib import Path
 
 # default, minimum, maximum, step, label, group
 SCHEMA={
+ 'sign_area_min':(150,70,2500,10,'Panneau rouge : surface minimale (pixels)','Mission 0 · Arrêt'),
+ 'sign_stop_area':(600,150,6000,50,'STOP : surface de déclenchement de l’arrêt (pixels)','Mission 0 · Arrêt'),
+ 'sign_white_min':(.035,.015,.3,.005,'Panneau rouge : fraction blanche minimale','Mission 0 · Arrêt'),
+ 'sign_confirm_frames':(3,3,8,1,'Panneau / damier : images distinctes requises','Mission 0 · Arrêt'),
+ 'sign_confirm_time':(.15,.1,.6,.05,'Panneau / damier : confirmation minimale (s)','Mission 0 · Arrêt'),
+ 'm4_entry_width_max':(1.2,.35,2.,.05,'Ouverture : largeur maximale recherchée (m)','Enceinte / SLAM'),
+ 'm4_entry_confirm_frames':(3,3,8,1,'Ouverture : scans distincts requis','Enceinte / SLAM'),
  'speed':(.05,.01,.08,.005,'Vitesse maximale (m/s)','Conduite'),
  'steering_gain':(.8,.2,2.,.1,'Correction de direction','Conduite'),
  'yellow_low':(18,0,178,1,'Jaune : teinte minimum','Piste'),
@@ -53,8 +60,9 @@ def validate(values):
   if not lo<=value<=hi:raise ValueError(f'{key} doit être entre {lo} et {hi}.')
   if isinstance(default,int) and int(value)!=value:raise ValueError('Valeur entière attendue : '+key)
   result[key]=int(value) if isinstance(default,int) else float(value)
+ if result['sign_stop_area']<result['sign_area_min']:raise ValueError('La surface de déclenchement STOP doit dépasser la surface minimale de détection.')
  if result['yellow_low']>=result['yellow_high'] or result['blue_low']>=result['blue_high']:raise ValueError('La teinte minimum doit être inférieure au maximum.')
- if result['priority_far_bottom']-result['priority_far_top']<10:raise ValueError('La fenêtre lointaine de mission 3 doit couvrir au moins 10 % de l’image.')
+ if result['priority_far_bottom']-result['priority_far_top']<10:raise ValueError('La fenêtre lointaine de mission 2 doit couvrir au moins 10 % de l’image.')
  if result['priority_size_min']>=result['priority_size_max']:raise ValueError('Le gabarit minimal doit être inférieur au maximal.')
  if result['priority_right_start']>=result['priority_right_end']:raise ValueError('Le début du secteur droit doit précéder sa fin.')
  if result['priority_cross_min']>=result['priority_cross_max']:raise ValueError('La distance minimale doit être inférieure à la distance maximale.')
@@ -75,5 +83,5 @@ def current():
    _cached=validate(json.loads(Path(path).read_text()));_stamp=stamp;_cached_path=path
  except (OSError,ValueError,TypeError):
   # A broken settings file must not silently retain potentially faster settings.
-  _cached=dict(DEFAULTS);_cached["speed"]=0.;_cached_path=path;_stamp=None
+  _cached=dict(DEFAULTS);_cached["speed"]=0.;_cached["m4_speed"]=0.;_cached_path=path;_stamp=None
  return dict(_cached)

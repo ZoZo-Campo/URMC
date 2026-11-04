@@ -3,7 +3,7 @@
 Numéro officiel : **0**. Le dossier `01_suivi_de_piste` et le package `urmc_mission_01` gardent leurs noms techniques pour préserver les commandes existantes.
 
 1. Ouvrir **OUVRIR.command**, choisir le robot puis **Connecter / préparer**.
-2. **Missions → Suivre la piste → Robuste → Lancer le suivi**.
+2. **Missions → Suivre la piste → Arrivée de cet essai → Robuste → Lancer la mission 0**.
 3. La vidéo montre les barycentres et le centre de piste. STOP termine l’essai.
 
 Les deux bordures jaune et blanche sont requises, quel que soit leur côté. Le mode robuste s’arrête quand la perception est insuffisante et confirme plusieurs images avant la reprise. Le suivi historique reste limité à 90 secondes. Le pilote caméra n’évite pas les obstacles au LiDAR.
@@ -13,13 +13,28 @@ Le banc ROS propose une piste courbe et des perturbations : **Simulations → 0 
 ## État et points à gagner
 
 - **4 points :** suivre la piste et s’arrêter au damier. Pilote préparé ; dernière version à revalider sur le terrain.
-- **1 point :** virage puis arrêt au panneau STOP. **L’arrêt au panneau manque dans le pilote réel lancé par la console.** Le candidat de forme du banc générique ne le remplace pas.
-- **Prochaine étape :** intégrer puis tester le STOP réel. Le bouton actuel lance le suivi et l’arrêt au damier.
+- **1 point :** virage puis arrêt au panneau STOP. Détecteur relié aux pilotes robuste et historique ; formes rouges avec motif blanc et confirmation sur plusieurs images fraîches. À tester sur le vrai panneau.
+- **Choisir l’arrivée :** automatique, damier seul (partie A), ou panneau STOP seul (partie B). Une ancienne version du robot sans capacité STOP est signalée par la console avant un tel essai.
 
 Voir les [exigences et tests restants](../../docs/VALIDATION.md).
 
+## Arrêt au panneau et commandes
+
+La vidéo affiche le cadre du candidat STOP et le nombre d’images cohérentes. Les réglages de surface minimale, motif blanc et confirmation sont dans **Paramètres → Mission 0 · Arrêt**. Un petit panneau lointain ralentit l’approche ; l’arrêt attend la surface de déclenchement réglée puis plusieurs images cohérentes. Ce seuil en pixels dépend du panneau et de la caméra et doit être calibré pour la bonne distance. L’arrêt final est verrouillé : relancer explicitement pour un nouvel essai. Le détecteur gère aussi le panneau rouge à barre blanche illustré dans les documents ; ce n’est pas une reconnaissance du texte STOP. Un rond rouge plein n’est pas accepté.
+
+Après transfert volontaire, sur le robot :
+
+```bash
+# Robuste : partie B, arrêt au panneau STOP
+python3 ~/urmc_essais_20261020/kit_robot/mission_barriere.py --run --ignore-barrier --finish stop
+# Partie A : remplacer stop par checker. Automatique : both.
+```
+
+Le point d’entrée historique accepte aussi `suivi_piste_camera.py --finish stop` ; sa durée reste limitée à 90 s. Le robuste n’a pas cette limite. Les seuils doivent être calibrés sur le panneau réel.
+
 ## Code
 
+- `code/perception/road_signs.py` : détection et confirmation spatiale/temporelle des panneaux et de l’arrivée.
 - `code/robot/suivi_piste_camera.py` : perception des deux bordures et essai historique.
 - Le suivi robuste utilise le pilote partagé de la [mission 1](../02_barriere/code/robot/mission_barriere.py), avec `--ignore-barrier` ; il n’existe qu’une copie de ce pilote.
 - `code/ros2/urmc_mission_01/` : logique et launch files du banc ROS.

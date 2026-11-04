@@ -54,14 +54,16 @@ def prepare_drivers():
   print(name+' : demarrage',flush=True)
 
 
-import time,math,json,signal
+import argparse,time,math,json,signal
 from std_srvs.srv import Trigger
 from std_msgs.msg import String
 from urmc_core.vision import analyze
+from urmc_core.road_signs import FinishGate
 from urmc_core.operator_settings import current as settings
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import QoSProfile,ReliabilityPolicy
+qos_profile_sensor_data=QoSProfile(depth=1,reliability=ReliabilityPolicy.BEST_EFFORT)
 from sensor_msgs.msg import CompressedImage
 from geometry_msgs.msg import Twist
 import cv2,numpy as np
@@ -123,9 +125,9 @@ def lane(data):
  return lane_details(data)['error']
 
 class Trial(Node):
- def __init__(self):
+ def __init__(self,finish=None):
   super().__init__('urmc_camera_track_follow');self.pub=self.create_publisher(Twist,'/cmd_vel',1)
-  self.tracker=LaneTracker();self.error=None;self.received=0;self.valid=0;self.started=None;self.created=time.monotonic();self.done=False
+  self.finish=FinishGate(finish or os.environ.get('URMC_FINISH_TARGET','both'));self.finish_event=None;self.tracker=LaneTracker();self.error=None;self.received=0;self.valid=0;self.started=None;self.created=time.monotonic();self.done=False
   self.create_subscription(CompressedImage,'/image_raw/compressed',self.image,qos_profile_sensor_data)
   self.last_start_log=0.;self.vision_reason='attente images';self.header_age=None;self.visual_pause=None;self.finish_count=0;self.last_stamp=None;self.last_log=0;self.speed=0.;self.yaw_rate=0.
   self.status=self.create_publisher(String,'/urmc/camera_follow/status',1)
@@ -134,17 +136,18 @@ class Trial(Node):
  def request_stop(self,req,res):
   self.stop('arret demande');res.success=True;res.message='Robot arrete';return res
  def stop(self,why):
-  self.pub.publish(Twist());self.done=True;self.status.publish(String(data=json.dumps(dict(state='STOP',reason=why,v=0,w=0))));print('ARRET : '+why,flush=True)
+  self.pub.publish(Twist());self.done=True;self.status.publish(String(data=json.dumps(dict(state='STOP',reason=why,v=0,w=0,finish=self.finish.report,event=self.finish_event))));print('ARRET : '+why,flush=True)
  def image(self,m):
   age=self.get_clock().now().nanoseconds/1e9-m.header.stamp.sec-m.header.stamp.nanosec/1e9
   self.header_age=age
   if not 0<=age<.25:self.error=None;self.valid=0;return
   try:
-   detection=lane_details(m.data,self.tracker);self.error=detection['error'];self.vision_reason=detection['reason']
    stamp=(m.header.stamp.sec,m.header.stamp.nanosec)
+   if self.last_stamp is not None and stamp<=self.last_stamp:return
+   detection=lane_details(m.data,self.tracker);self.error=detection['error'];self.vision_reason=detection['reason']
    if stamp!=self.last_stamp:
     image=cv2.imdecode(np.frombuffer(m.data,np.uint8),cv2.IMREAD_COLOR)
-    self.finish_count=self.finish_count+1 if analyze(image)['checker'] else 0
+    self.finish_event=self.finish.update(image,analyze(image)['checker'],time.monotonic(),stamp,settings());self.finish_count=self.finish.checker.frames
     self.last_stamp=stamp
   except Exception:self.error=None;self.finish_count=0
   self.received=time.monotonic();self.valid=self.valid+1 if self.error is not None else 0
@@ -152,9 +155,10 @@ class Trial(Node):
   if self.done:return
   now=time.monotonic()
   if now-self.created<1:return
-  if self.count_publishers('/cmd_vel')!=1:return self.stop('autre commande moteur detectee')
-  fresh=self.error is not None and now-self.received<.25
-  if self.finish_count>=3:return self.stop('damier confirme sur trois images')
+  if self.count_publishers(self.pub.topic_name)!=1:return self.stop('autre commande moteur detectee')
+  source_age=self.get_clock().now().nanoseconds/1e9-self.last_stamp[0]-self.last_stamp[1]/1e9 if self.last_stamp else math.inf
+  fresh=self.error is not None and 0<=now-self.received<.25 and 0<=source_age<.25
+  if self.finish_event:return self.stop(self.finish_event['reason'])
   if self.started is None:
    self.pub.publish(Twist())
    if now-self.created>30:return self.stop('aucune image recente' if self.header_age is None or now-self.received>.25 else self.vision_reason)
@@ -163,7 +167,7 @@ class Trial(Node):
    if not fresh or self.valid<3:return
    self.started=now;print('DEPART : suivi camera, vitesse maximale '+str(settings()['speed'])+' m/s, arret au damier ou 90 secondes; erreur='+str(round(self.error,3)),flush=True)
   if now-self.started>=90:return self.stop('limite de 90 secondes atteinte')
-  if now-self.received>=.25 or self.header_age is None or not 0<=self.header_age<.25:
+  if not 0<=now-self.received<.25 or not 0<=source_age<.25:
    return self.stop('camera perimee : age reception='+str(round(now-self.received,3))+' age image='+str(self.header_age))
   if self.error is None:
    self.speed=0.;self.yaw_rate=0.;self.pub.publish(Twist())
@@ -176,10 +180,12 @@ class Trial(Node):
    self.visual_pause=None;print('REPRISE : trois images valides',flush=True)
   if abs(self.error)>.65:return self.stop('piste trop decalee')
   cfg=settings();target=cfg["speed"]/(1+3*abs(self.error));turn=max(-.25,min(.25,-cfg["steering_gain"]*self.error))
+  candidate=self.finish.report.get('stop',{});approaching=bool(candidate.get('visible') and not candidate.get('ready_to_stop'))
+  if approaching:target=min(target,.025)
   self.speed+=max(-.005,min(.0015,target-self.speed))
   self.yaw_rate+=max(-.025,min(.025,turn-self.yaw_rate))
   cmd=Twist();cmd.linear.x=self.speed;cmd.angular.z=self.yaw_rate;self.pub.publish(cmd)
-  state=dict(state='FOLLOW',elapsed=round(now-self.started,1),error=round(self.error,3),v=round(self.speed,3),w=round(self.yaw_rate,3))
+  state=dict(finish=self.finish.report,state='APPROACH_STOP' if approaching else 'FOLLOW',elapsed=round(now-self.started,1),error=round(self.error,3),v=round(self.speed,3),w=round(self.yaw_rate,3))
   self.status.publish(String(data=json.dumps(state)))
   if now-self.last_log>3:print(json.dumps(state),flush=True);self.last_log=now
 def diagnose_camera():
@@ -204,19 +210,22 @@ def diagnose_camera():
  finally:node.destroy_node();rclpy.shutdown()
 
 def main():
- if sys.argv[1:]==['--check']:
+ parser=argparse.ArgumentParser();modes=parser.add_mutually_exclusive_group()
+ modes.add_argument('--check',action='store_true');modes.add_argument('--prepare-only',action='store_true');modes.add_argument('--diagnostic',action='store_true')
+ parser.add_argument('--finish',choices=['both','checker','stop'],default=None)
+ args=parser.parse_args()
+ if args.check:
   print('Environnement ROS charge : domaine '+os.environ['ROS_DOMAIN_ID']+' ; imports OK ; aucun pilote ni moteur lance.');return
- if sys.argv[1:] not in ([],['--prepare-only'],['--diagnostic']):raise SystemExit('Usage : python3 suivi_piste_camera.py [--check|--prepare-only|--diagnostic]')
  lock_path=Path(os.environ['URMC_CAMERA_WORKSPACE'])/'.camera_follow.lock'
  lock=lock_path.open('w')
  try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
  except BlockingIOError:raise SystemExit('Un suivi est deja en cours. Aucun second lancement.')
  prepare_drivers()
- if sys.argv[1:]==['--prepare-only']:
+ if args.prepare_only:
   print('Pilotes prepares. Aucun controleur moteur lance.');return
- if sys.argv[1:]==['--diagnostic']:diagnose_camera();return
+ if args.diagnostic:diagnose_camera();return
  print('Attente de la camera et des bordures (30 s maximum). Un seul essai sera lance.',flush=True)
- rclpy.init();n=Trial()
+ rclpy.init();n=Trial(args.finish)
  for sig in (signal.SIGINT,signal.SIGTERM,signal.SIGHUP):signal.signal(sig,lambda signum,frame:n.stop('interruption'))
  try:
   while rclpy.ok() and not n.done:rclpy.spin_once(n,timeout_sec=.1)

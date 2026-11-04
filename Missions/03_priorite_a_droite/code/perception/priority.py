@@ -29,7 +29,7 @@ class PriorityBrain(BaseBrain):
         self.good_frames=0;self.entry_frames=0;self.reacquire_frames=0;self.lane_width=None
         self.image_id=None;self.clear_scan=None;self.clear_frames=0;self.last_step=None
         self.progress=0.;self.lateral=0.;self.reason='Attente des capteurs';self.telemetry={}
-        self.handled=False;self.vision_source='near'
+        self.handled=False;self.vision_source='near';self.approach_wait=False
 
     def lane(self,o):
         error=o.get('error',0.)
@@ -75,6 +75,19 @@ class PriorityBrain(BaseBrain):
                     self.state='YIELD';self.origin=tuple(pose[:2]);self.heading=self.last_good_pose[2]
                     self.reset_clear()
             if self.state=='FOLLOW':
+                traffic=o.get('traffic')
+                approaching=bool(traffic and traffic.get('blocked'))
+                analysing=bool(traffic and not traffic.get('known'))
+                if approaching or (self.approach_wait and analysing):
+                    self.approach_wait=True;self.reset_clear();self.reason='Priorite a droite avant l’ouverture du carrefour';return self.result()
+                if self.approach_wait:
+                    scan_id=o.get('scan_id')
+                    if scan_id is not None and scan_id!=self.clear_scan:
+                        self.clear_scan=scan_id;self.clear_frames+=1
+                        if self.clear_since is None:self.clear_since=now
+                    if self.clear_frames<3 or self.clear_since is None or now-self.clear_since<cfg['priority_clear_delay']:
+                        self.reason='Confirmation droite libre avant reprise de l’approche';return self.result()
+                    self.approach_wait=False;self.reset_clear()
                 if not lane or self.entry_frames:self.reason='Entree de carrefour a confirmer';return self.result()
                 if front<=cfg['priority_front_stop']:self.reason='Obstacle devant';return self.result()
                 self.reason='Suivi des deux bordures';return self.lane(o)

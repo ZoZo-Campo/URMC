@@ -137,7 +137,7 @@ class Viewer(Node):
                 details=views['far'] if priority.get('vision_source')=='far' else views['near']
                 priority=dict(priority,vision=views)
             else:details=lane_details(data,self.lane_tracker,image=decoded)
-            self.encode(diagnostic_view(decoded,details,detect(decoded),robot_id=int(os.environ.get('URMC_ROBOT_ID','11')),priority=priority))
+            self.encode(diagnostic_view(decoded,details,detect(decoded),robot_id=int(os.environ.get('URMC_ROBOT_ID','11')),priority=priority,finish=active[2].get('finish') if active else None))
         elif data.startswith(b'\xff\xd8'):self.save(data)
         else:
             import cv2,numpy as np
