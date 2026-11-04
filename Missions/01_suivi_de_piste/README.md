@@ -10,6 +10,14 @@ Les deux bordures jaune et blanche sont requises, quel que soit leur côté. Le 
 
 Le banc ROS propose une piste courbe et des perturbations : **Simulations → 0 → Ouvrir → Démarrer**. Les fonctions de recherche de ligne et de détour de ce banc ne sont pas toutes présentes dans le pilote caméra réel.
 
+## État et points à gagner
+
+- **4 points :** suivre la piste et s’arrêter au damier. Pilote préparé ; dernière version à revalider sur le terrain.
+- **1 point :** virage puis arrêt au panneau STOP. **L’arrêt au panneau manque dans le pilote réel lancé par la console.** Le candidat de forme du banc générique ne le remplace pas.
+- **Prochaine étape :** intégrer puis tester le STOP réel. Le bouton actuel lance le suivi et l’arrêt au damier.
+
+Voir les [exigences et tests restants](../../docs/VALIDATION.md).
+
 ## Code
 
 - `code/robot/suivi_piste_camera.py` : perception des deux bordures et essai historique.

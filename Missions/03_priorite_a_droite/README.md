@@ -5,6 +5,14 @@ Numéro officiel : **2** ; dossier et package techniques `03` conservés.
 Sur le robot, utiliser l’interface du Mac : **Missions → Priorité à droite**.
 Commencer par **Observer caméra + LiDAR** pour vérifier les mesures, puis **Lancer avec moteurs** pour l’essai. Le retour caméra et la carte LiDAR sont dans **Piloter**. STOP termine l’essai ; aucun redémarrage automatique.
 
+## État et points à gagner
+
+- **3 points :** détecter la cible à droite et s’arrêter.
+- **2 points :** repartir après son passage, traverser dans la bonne direction et retrouver les deux bordures.
+- **Préparé et testé en simulation ; à vérifier sur le terrain :** deuxième robot, voie de droite, distance, cap et reprise proche. Une personne dans cette voie peut aussi être retenue.
+
+Voir les [exigences et tests restants](../../docs/VALIDATION.md).
+
 ## Fonctionnement
 
 1. Suivre les deux bordures jaune et blanche, quel que soit leur côté.

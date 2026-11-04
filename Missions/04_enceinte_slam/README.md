@@ -9,6 +9,14 @@ Dans l’étape 2, choisir **parcours complet** (entrée → intérieur → arri
 
 Les deux modes utilisent le même pilote ROS 2 et les mêmes contrôles LiDAR. Activer la carte ne fait pas bouger le robot : seul le manuel ou le bouton de départ commande les moteurs. Le règlement impose une perception exclusivement LiDAR pour cette mission. Vidéo et assistance caméra sont désactivées par défaut et réservées aux essais hors compétition.
 
+## État et points à gagner
+
+- **1 point :** détection du panneau d’entrée ; **non développée**, règle de capteur à clarifier.
+- **3 points :** entrée sans contact ; **3 points :** sortie ; **bonus +3 :** avec obstacles. Navigation sur repères préparés testée en simulation, à valider sur le robot.
+- **Prochain test :** placer A dehors avant l’entrée, B dedans, C dehors après la sortie ; vérifier localisation, marge et obstacles réels.
+
+Voir les [exigences et tests restants](../../docs/VALIDATION.md). Les repères posés à la main ne valident pas une détection autonome du panneau ou des ouvertures.
+
 ## Dimensions indicatives, départ à l’extérieur
 
 **1 m × 1,25 m** est une indication de départ, pas une dimension imposée de l’épreuve. Le terrain d’entraînement SLAM utilise actuellement cette taille. Les dimensions et l’orientation du cadre affiché dans l’étape 2 peuvent être ajustées manuellement et sauvegardées avec la carte. Le cadre est **facultatif et purement visuel** : son absence, son placement et ses dimensions ne bloquent pas le départ et ne modifient ni les murs ni le calcul du trajet. Les vrais murs et obstacles viennent du LiDAR ; le rayon du robot, sa marge et sa vitesse sont réglables dans **Paramètres → Enceinte / SLAM**.

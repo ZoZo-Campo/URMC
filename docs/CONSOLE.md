@@ -5,7 +5,7 @@
 Ouvrir `OUVRIR URMC.command`, sélectionner le robot puis **Connecter / préparer**. Le lancement et la connexion ne commandent aucun mouvement. La console reste sur `http://127.0.0.1:8090/`.
 
 - **Piloter** : vidéo, LiDAR, maintien des flèches pour le manuel et raison de l’état courant.
-- **Missions** : numéros officiels 0 à 6, avec accès au panneau Enceinte / SLAM et raccourci d’entraînement sur le Mac ; mission 5 en pause, challenges collectifs 3/6 à préparer.
+- **Missions** : raccourcis vers les épreuves 0/1/2/4 ; chaque carte montre le scénario, les critères et leurs points, l’état de développement et le prochain test. Malus et détails sont dépliables. Le collectif 3/6 et la palette 5 en pause sont regroupés en dessous. Les points affichés sont possibles, jamais acquis automatiquement. Un bandeau indique le programme actif, sa décision et le lien vers ses capteurs, pour le robot sélectionné.
 - **Enceinte / SLAM** : préparation guidée en trois étapes, progression visible et prochaine action indiquée : choix SLAM ou vue locale, parcours complet ou arrivée au clic, puis position/départ. Sans SLAM, la pose est relative à l’odométrie de départ et les déplacements sont limités à 3 m. Les commandes de départ restent désactivées si la carte, les repères, la position ou les capteurs ne sont pas prêts.
 - **Simulations** : bancs ROS 0/1/2 et banc SLAM 4 ; le banc SLAM dédié est dans Enceinte / SLAM.
 - **Réglages** : perception, vitesse, seuils de priorité et gabarit/marge de l’enceinte.

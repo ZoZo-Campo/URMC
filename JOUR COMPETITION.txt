@@ -17,6 +17,8 @@ URMC — COMMENCER ICI
    VUE D’ENSEMBLE : caméra, LiDAR, vitesse et pilotage manuel.
    VITESSE : choisir Manuel/missions caméra ou Mission 4, régler en cm/s, puis Appliquer.
    MISSIONS : 0 suivi, 1 barrière, 2 priorité à droite, 4 enceinte.
+   Chaque carte : étapes, points possibles, ce qui manque et prochain test.
+   Le bandeau montre la décision du programme actif ; Voir les capteurs ouvre son retour.
    3 et 6 : collectif à préparer. 5 : en pause.
    SIMULATIONS : 0, 1, 2 et banc SLAM 4, sans commander le robot.
    PARAMETRES : vitesse, correction de direction, couleurs, barrière et distances de priorité à droite.
@@ -138,3 +140,11 @@ Panneau représentant une arche, figure 6 du règlement. Sa reconnaissance n’e
 Le barème lui donne 1 point mais interdit aussi la caméra en mission 4 :
 faire préciser par les organisateurs si une détection avant l’entrée est autorisée.
 A placé à la main ne valide pas ce point.
+
+EXIGENCES ENCORE MANQUANTES
+Mission 0 : arrêt automatique au panneau STOP à intégrer au pilote réel (1 point).
+Le lancement actuel fait le suivi + arrêt au damier (critère de 4 points à valider sur place).
+Mission 4 : détection du panneau d’entrée non développée (1 point).
+Priorité et enceinte : validation physique complète encore nécessaire.
+Les points affichés sont ceux du barème ; seul le jury valide les points obtenus.
+Détail à jour : Code/docs/VALIDATION.md.

@@ -1,56 +1,83 @@
-# Validation et limites
+# Exigences, points et état des missions
 
-## État actuel
+Numéros du barème officiel. **Les points sont attribués par le jury** : l’interface affiche les points possibles, sans les considérer comme déjà gagnés. Une réussite sur capteurs simulés ne valide pas l’épreuve sur le robot réel.
 
-| Élément | Vérifications effectuées | Limites |
-|---|---|---|
-| Interface et deux profils | Chrome, mobile, identité des vidéos/mesures, réglages distincts, commandes anciennes refusées | IP du robot 9 à confirmer |
-| Manuel | Maintien, délai de 250 ms, révocation, conflits de publishers et verrous | Essais matériels de la dernière chaîne à refaire |
-| Suivi / barrière | Perception, surfaces, états, fermeture/levée, images distinctes et fraîches ; banc ROS avec vitesses remappées | Éclairage et seuils à vérifier sur place |
-| Priorité à droite | Distance/zone/gabarit, option de mouvement, compensation odométrique, attente et traversée sans lignes | Le LiDAR ne distingue pas à coup sûr robot et personne |
-| Enceinte / SLAM | Vrai SLAM Toolbox sur scans synthétiques, sauvegarde/rechargement du graphe, pose confirmée, zone bornée, obstacle ajouté après cartographie et sortie avant 60 s | Calibration du gabarit, de la carte, des repères et de la localisation sur les robots |
-| Enceinte sans SLAM | Boucle ROS réelle sur capteurs synthétiques, sans TF map ni graphe, arrivée exacte choisie, détour et obstacle retiré de la vue | Dérive odométrique, limite 3 m ; essais matériels restants |
-| Arrivée / caméra d’essai | Chrome, sélection exacte au clic, départ bloqué si données périmées ou pose SLAM non confirmée, assistance activée explicitement, affichage mobile | Caméra : qualité et changement à l’arrêt, sans reconnaissance ni profondeur ; désactivée pour la compétition |
-| Palette (5), en pause | Ancienne séquence de simulation conservée | Perception réelle, planification des zones et pilote aimant manquants |
+## Mission 0 · Suivi de piste · 5 points possibles
 
-La suite comprend les tests de perception, commande, fraîcheur, sécurité HTTP, séparation des robots, grilles orientées, inflation, zones inconnues, sauvegardes et verrous. La suite initiale du rangement comporte 163 tests. Après ajout du choix SLAM/local, de l’arrivée au clic et de l’analyse de l’environnement, **177 tests** passent. Les pilotes barrière et priorité sont aussi exercés dans ROS avec des topics de vitesse de test. La découverte colcon identifie une seule fois les six packages.
+| Pour gagner les points | Points | État actuel | Prochaine vérification |
+|---|---:|---|---|
+| Suivre la piste et s’arrêter au damier transversal | 4 | Pilote réel de suivi et arrêt au damier préparés ; essais de piste déjà réalisés, dernière chaîne à revalider | Ligne droite, damier, lumière et vitesse réelles |
+| Suivre le virage et s’arrêter au panneau STOP | 1 | **Incomplet** : le pilote caméra de la console ne prend pas la détection STOP en compte | Intégrer le détecteur au pilote, puis tester sur le panneau réel |
 
-## Scripts utiles
+Malus : −1 en cas de sortie de piste ou d’arrêt manqué, pour chacune des deux parties.
 
-- `python3 -m pytest` : suite unique dans `tests/`.
-- `tools/test_barrier_runtime.py` : barrière et suivi avec capteurs ROS synthétiques.
-- `tools/test_priority_runtime.py` : cible à droite, traversée sans lignes, coupure caméra et reprise.
-- `tools/test_priority_simulation.py` : launch ROS de la mission 2.
-- `tools/test_navigation_modes_runtime.py` : boucle ROS sans SLAM, obstacle ajouté puis retiré et caméra explicite ; utilise uniquement des topics de simulation.
-- `tools/test_enclosure_slam.py` : workflow du banc SLAM ; refuse un serveur qui ne se déclare pas simulé.
-- `tools/integration_ros.py` : lancement des cinq bancs historiques.
+Deux bordures jaune et blanche obligatoires, quel que soit leur côté. La version robuste confirme les images avant de reprendre après une pause. Le bleu n’intervient pas dans cette mission. Le banc générique contient un candidat de forme rouge ; cela ne constitue pas un arrêt STOP intégré et validé dans le pilote réel. Les anciens textes qui présentaient ce point comme acquis étaient trop affirmatifs.
 
-Les conteneurs de test isolent les simulations des topics matériels. Les cartes et captures dans `docs/images` sont synthétiques et ne représentent pas le terrain réel.
+## Mission 1 · Barrière · 5 points possibles
 
-## Avant un essai physique
+| Pour gagner les points | Points | État actuel | Prochaine vérification |
+|---|---:|---|---|
+| Détecter la barrière et s’arrêter avant contact | 3 | Détection du rectangle bleu et arrêt intégrés | Surface/angle, distance d’arrêt et vitesse sur la vraie barrière |
+| Reprendre le suivi après l’ouverture | 2 | Confirmation de levée et reprise intégrées | Levée, immobilisation, disparition et reprise sur les deux bordures |
 
-Vérifier la connexion, les domaines ROS distincts, les topics et TF des capteurs, la cadence et les horodatages, le rayon réel du montage et les marges. Pour l’enceinte, confirmer la localisation et la zone autorisée, puis placer les repères avant l’entrée, à l’intérieur et au-delà de la seconde ouverture.
+Malus : −1 si le robot heurte la barrière. Plus grande surface bleue, forme et orientation sont contrôlées. Une absence initiale de bleu ne suffit pas à déclarer la barrière ouverte. Le rectangle bleu, horizontal fermé et vertical levé, correspond à la description du matériel donnée par l’équipe.
 
-Un chemin impossible ou inconnu impose l’arrêt. Les contrôles logiciels ne prouvent pas l’absence de collision dans toute situation physique. Une réussite en simulation ne vaut pas validation matérielle générale.
+## Mission 2 · Priorité à droite · 5 points possibles
 
-## Refonte de la console — 4 novembre 2026
+| Pour gagner les points | Points | État actuel | Prochaine vérification |
+|---|---:|---|---|
+| Détecter le robot arrivant à droite et s’arrêter | 3 | Zone, distance, gabarit et attente au LiDAR intégrés ; tests ROS simulés passés | Deuxième robot réel, orientation du LiDAR et réglage de la voie |
+| Reprendre et traverser dans la bonne direction | 2 | Maintien du cap, zone sans lignes, vision lointaine puis reprise proche testés en simulation | Carrefour réel et reprise des deux bordures proches |
 
-180 tests passent dans ROS 2 Humble, avec topics de test isolés. Les ajouts vérifient la persistance des adresses des deux profils, la conservation de la connexion en cas d’erreur disque et le réglage de vitesse sans démarrage de processus moteur. Dans le navigateur en démonstration : brouillon puis application de vitesse en cm/s, IP distinctes, changement de profil et rechargement avec le robot 9 sélectionné. Ces essais n’attestent pas la réussite physique des missions.
+Malus : −1 si pas de détection ; −2 si mauvaise direction. La détection utilise la distance au robot et la voie de droite, pas l’ensemble de la pièce. Elle ne garantit pas la distinction entre un robot et une personne de même gabarit dans cette voie. Un seul carrefour est traité par lancement.
 
-## Missions 2 et 4 — vision et dimensions du terrain
+## Mission 4 · Enceinte · 7 points et bonus de 3
 
-199 tests couvrent notamment la séparation proche/lointain, les images répétées ou interrompues, la priorité LiDAR qui annule la commande, le passage aux trois images proches et les positions dans/hors de l’enceinte. Le décodage de l’image est partagé entre les deux fenêtres pour limiter la charge.
+| Pour gagner les points | Points | État actuel | Prochaine vérification |
+|---|---:|---|---|
+| Détecter le panneau d’entrée au tunnel | 1 | **Non développé** ; règle de capteur ambiguë | Faire préciser aux organisateurs la détection du panneau et l’interdiction caméra, puis développer |
+| Entrer dans l’enceinte sans toucher les montants | 3 | Navigation A → B sur carte/vues LiDAR préparées, testée en simulation | Approche et largeur réelle d’entrée, rayon et marge |
+| Trouver la sortie et ressortir dans le temps imparti | 3 | Navigation B → C, arrêt et chrono testés en simulation | Localisation et point C réellement à l’extérieur |
+| Réussir avec les obstacles ajoutés | +3 | Ajout/retrait d’obstacles par scans et recalcul testés en simulation | Obstacles réels dans plusieurs positions |
 
-Banc ROS mission 2 : attente d’une cible venant de droite, départ après libération, traversée sans lignes, interruption caméra, lignes lointaines seules, puis reprise proche. Banc mission 4 : enceinte physique synthétique de 1 × 1,25 m, départ dehors, SLAM réel, sauvegarde/rechargement, obstacle ajouté, passage intérieur et sortie dehors avant la limite de temps. La navigation sans SLAM avec obstacle reste également exercée.
+Malus : −1 si une paroi est touchée ; −1 si un obstacle tombe. Le texte impose le LiDAR seul et interdit la caméra durant cette mission. Le panneau dessiné en figure 6 représente une arche ; le point du barème ne peut pas être déclaré validé par un repère A placé à la main.
 
-Interface : repère métrique au clic. Les blocages géométriques du cadre, introduits dans cette version, ont été retirés ensuite à la demande de l’équipe : les dimensions sont indicatives. Les fenêtres proches/lointaines n’affectent que le pilote de mission 2. Essais matériels et calibration caméra/LiDAR encore nécessaires ; aucun robot réel n’a été modifié pendant ce développement.
+Le robot commence réellement dehors ; A est avant l’entrée, B dedans, C dehors après la sortie. **Le pilote actuel utilise ces repères préparés** : il ne certifie pas automatiquement la détection du panneau ou des ouvertures. La zone autorisée doit empêcher un détour extérieur.
 
+SLAM au choix. Le LiDAR continue d’analyser les obstacles pendant le parcours. **1 × 1,25 m est indicatif**, ajustable et facultatif, sans contrainte sur le trajet. Les murs viennent des mesures. Rayon, marge et vitesse sont réglables. Sans SLAM : origine odométrique et objectifs à moins de 3 m ; dérive possible. Le chrono logiciel de 60 s démarre au repère d’approche A, de façon conservatrice avant l’entrée complète.
 
-## Barème officiel, dimensions indicatives et manuel — 4 novembre 2026
+## Missions laissées de côté
 
-- **198 tests ROS passent**, dont un test recevant réellement les commandes manuelles sur un topic isolé : avance, recul, relâchement et arrêt après expiration de 250 ms.
-- `node tools/test_console_ui.js` reproduit l’invalidation du manuel par une ancienne réponse HTTP sur la version précédente et passe après correction. Il vérifie aussi STOP pendant une activation, la reprise après rechargement, un cadre absent/modifié et le blocage sur capteurs périmés.
-- Banc SLAM sans réseau matériel : cartographie, graphe sauvegardé/rechargé, entrée/intérieur/sortie avec obstacle ajouté et cadre volontairement placé hors terrain. Le parcours se termine avant la limite, sans dépendre du cadre.
-- Navigateur en démonstration : missions officielles 0 à 6 affichées, mission 5 en pause, activation du manuel et message de reprise après rechargement.
+- **3 · Collectif piste :** 8 points avant classement, −1 par position d’arrivée selon le barème. Programme collectif à préparer.
+- **5 · Palette :** en pause à la demande de l’équipe. Aucun lancement dans l’interface ni nouveau développement. Ancienne simulation conservée ; reconnaissance des zones et pilote de l’électroaimant absents.
+- **6 · Collectif manœuvres :** 8 points avant classement, −1 par position d’arrivée selon le barème. Programme collectif à préparer.
 
-Les dimensions n’imposent plus une géométrie au planificateur. Les points libres, la zone autorisée, l’empreinte, la pose et les mesures fraîches restent requis. La détection automatique du panneau de tunnel reste absente ; l’usage du capteur pour ce point du barème est à clarifier avec les organisateurs. Aucun robot réel n’a été modifié ou déplacé ; un essai manuel physique est encore nécessaire après transfert volontaire.
+## Vérifications transversales restantes
+
+- [ ] Tester physiquement la dernière commande manuelle : avance, recul, rotation, relâchement et STOP.
+- [ ] Confirmer les IP actuelles et le domaine des pilotes des robots 9 et 11 ; profils séparés dans l’interface.
+- [ ] Relever la cadence réelle caméra/LiDAR/odométrie, l’âge des images et la latence vidéo.
+- [ ] Calibrer les seuils de couleur, la vitesse, le rayon, les marges et les distances sur le terrain réel.
+- [ ] Valider chaque critère du barème devant un observateur ; ne pas confondre programme disponible et points acquis.
+
+## Preuves de validation disponibles
+
+**198 tests ROS passent** dans la dernière validation moteur/perception, sur topics isolés. Ils couvrent perception, fraîcheur, HTTP, réglages, profils distincts, verrous, grilles, chemins et commandes périmées. Le manuel a été testé avec un vrai abonné ROS sur un topic de test : avance, recul, relâchement et arrêt après 250 ms sans maintien. Aucune commande moteur réelle durant ces vérifications.
+
+Le défaut d’activation manuelle a été reproduit sur l’ancienne interface : une réponse HTTP ancienne effaçait la nouvelle session. Le test `node tools/test_console_ui.js` passe après correction. Il vérifie aussi la reprise après rechargement, STOP pendant une activation, le cadre indicatif facultatif et les capteurs périmés.
+
+Le banc SLAM réalise cartographie, sauvegarde/rechargement du graphe, pose confirmée, entrée/intérieur/sortie et contournement d’un obstacle ajouté après cartographie. Le parcours reste valide avec un cadre indicatif volontairement placé hors du terrain. Le banc sans SLAM vérifie l’arrivée choisie et l’actualisation d’obstacles. Ce sont des capteurs synthétiques, pas les robots réels.
+
+La page Missions distingue maintenant les objectifs du barème, les comportements préparés, les manques et le programme réellement actif. La refonte de cette page ne modifie aucun algorithme moteur.
+
+## Outils de vérification
+
+- `python3 -m pytest` : tests ROS, sous Ubuntu/ROS 2 Humble.
+- `node tools/test_console_ui.js` : ordre des réponses et commande manuelle de l’interface.
+- `python3 tools/check_layout.py` : dossiers, packages et liens internes.
+- `tools/test_barrier_runtime.py` : barrière sur capteurs ROS synthétiques.
+- `tools/test_priority_runtime.py` : priorité, traversée sans lignes et reprise proche.
+- `tools/test_navigation_modes_runtime.py` : navigation sans SLAM et obstacles actualisés.
+- `tools/test_enclosure_slam.py` : graphe SLAM, entrée/sortie et cadre indicatif ; refuse un serveur non simulé.
+
+Les [documents officiels fournis](documents/) restent la référence. Les chemins techniques `01`, `02`, `03` correspondent aux missions officielles **0**, **1**, **2** et restent stables pour les robots.

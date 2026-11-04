@@ -22,6 +22,8 @@ Les numéros affichés sont ceux du barème officiel. Les dossiers/packages tech
 
 Chaque dossier de mission contient un README, son raccourci, son code et, lorsqu’ils existent, les liens vers ses tests. Les règles utiles sont intégrées au README. Le code spécifique n’est pas dupliqué.
 
+L’onglet **Missions** résume ce que fait le robot, les points de chaque action et les manques. Le détail des [exigences, points et vérifications restantes](docs/VALIDATION.md) est tenu à jour. L’arrêt au panneau STOP de la mission 0 et la détection du panneau de tunnel de la mission 4 ne sont pas encore intégrés au pilote réel.
+
 ## Où sont les fichiers ?
 
 ```text

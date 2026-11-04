@@ -12,6 +12,14 @@ La vidéo affiche surfaces, angle, contours, barycentres et masques couleur. Les
 
 Le suivi garde les deux bordures, dans les deux sens de couleur. Il n’a pas de durée totale maximale par défaut ; arrêt au damier ou STOP. L’odométrie et les images doivent rester récentes.
 
+## État et points à gagner
+
+- **3 points :** détecter la barrière et s’arrêter sans contact.
+- **2 points :** repartir après la levée et reprendre le suivi.
+- **Préparé :** perception bleue, confirmation et commande de suivi. **À revalider :** distance d’arrêt et reprise sur le vrai parcours, sous l’éclairage réel.
+
+Voir les [exigences et tests restants](../../docs/VALIDATION.md).
+
 ## Code
 
 - `code/robot/mission_barriere.py` : pilote réel et suivi robuste partagé.
