@@ -44,14 +44,19 @@ def diagnostic_view(image,lane,barrier,robot_id=None,priority=None):
   panel=cv2.resize(panel,(160,120));cv2.rectangle(panel,(0,0),(159,15),(18,30,28),-1)
   cv2.putText(panel,title,(4,11),0,.28,(240,240,240),1);panels.append(panel)
  result=np.hstack((out,np.vstack(panels)))
- if priority:priority_overlay(result,priority)
+ if priority:
+  for key,color in [('near',(80,220,120)),('far',(240,180,70))]:
+   roi=priority.get('vision',{}).get(key,{}).get('roi')
+   if roi:
+    y0,y1=[round(v*1.5) for v in roi];cv2.rectangle(result,(1,y0),(478,y1),color,1)
+  priority_overlay(result,priority)
  return result
 
 
 def priority_overlay(out,status):
  # Keep the lane masks visible; put a compact laser map over the lower camera.
  cv2.rectangle(out,(0,299),(332,359),(18,30,28),-1)
- cv2.putText(out,'PRIORITE '+str(status.get('state','?')),(6,313),0,.40,(0,220,255),1)
+ cv2.putText(out,'M3 '+str(status.get('state','?'))+' VISION '+{'near':'PROCHE','far':'LOIN','heading':'CAP'}.get(status.get('vision_source'),'PROCHE'),(6,313),0,.40,(0,220,255),1)
  def distance(key):
   value=status.get(key);return '?' if value is None else '%.2fm'%value
  cv2.putText(out,'Droite '+distance('right')+' Avant '+distance('front'),(6,330),0,.38,(240,240,240),1)

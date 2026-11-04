@@ -65,7 +65,9 @@ Piloter : vérifier la vidéo, la carte LiDAR et les distances au robot.
 Réglages → Priorité à droite : seuil initial 0,80 m, à calibrer.
 Mode distance par défaut ; « Exiger une approche observée » = 1 active le filtre de mouvement.
 Puis Missions → Priorité à droite → Lancer avec moteurs.
-Le robot attend que la voie se libère, traverse au cap mémorisé sans lignes, puis reprend les deux bordures.
+Le robot attend que la voie se libère, traverse au cap mémorisé sans lignes proches et regarde au loin.
+Trois images des deux bordures proches confirment la reprise du suivi proche.
+Paramètres → Mission 3 · Vision : fenêtre lointaine, uniquement pour cette mission.
 STOP pour terminer. Un seul carrefour par lancement.
 Essais sur le vrai robot encore nécessaires ; le LiDAR seul ne garantit pas la distinction robot/personne.
 
@@ -77,7 +79,9 @@ Puis Connecter / préparer dans la console.
 
 1. Missions → 04 → Préparer la mission 4 → Avec SLAM → Créer une nouvelle carte.
 2. Prendre les commandes, parcourir l’entrée, l’intérieur et la sortie ; STOP.
-3. Sur la carte : dessiner la zone autorisée, puis placer entrée / intérieur / sortie.
+3. Etape 2 : largeur 1 m, profondeur 1,25 m → Placer le cadre de l’enceinte.
+   Aligner le cadre sur les murs LiDAR. Puis dessiner la zone autorisée et placer A dehors / B dedans / C dehors.
+   Le robot commence dehors ; le parcours complet refuse un départ dedans.
    Inclure le parcours, exclure un détour autour des parois par l’extérieur.
 4. Donner un nom → Enregistrer ma carte et mon parcours. Télécharger le ZIP pour le Mac.
 5. Placer le robot avant l’entrée → choisir la carte → Charger.

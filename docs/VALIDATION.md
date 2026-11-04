@@ -36,3 +36,11 @@ Un chemin impossible ou inconnu impose l’arrêt. Les contrôles logiciels ne p
 ## Refonte de la console — 4 novembre 2026
 
 180 tests passent dans ROS 2 Humble, avec topics de test isolés. Les ajouts vérifient la persistance des adresses des deux profils, la conservation de la connexion en cas d’erreur disque et le réglage de vitesse sans démarrage de processus moteur. Dans le navigateur en démonstration : brouillon puis application de vitesse en cm/s, IP distinctes, changement de profil et rechargement avec le robot 9 sélectionné. Ces essais n’attestent pas la réussite physique des missions.
+
+## Missions 3 et 4 — vision et dimensions du terrain
+
+199 tests couvrent notamment la séparation proche/lointain, les images répétées ou interrompues, la priorité LiDAR qui annule la commande, le passage aux trois images proches et les positions dans/hors de l’enceinte. Le décodage de l’image est partagé entre les deux fenêtres pour limiter la charge.
+
+Banc ROS mission 3 : attente d’une cible venant de droite, départ après libération, traversée sans lignes, interruption caméra, lignes lointaines seules, puis reprise proche. Banc mission 4 : enceinte physique synthétique de 1 × 1,25 m, départ dehors, SLAM réel, sauvegarde/rechargement, obstacle ajouté, passage intérieur et sortie dehors avant la limite de temps. La navigation sans SLAM avec obstacle reste également exercée.
+
+Interface : repère métrique au clic, refus de départ dedans, blocage immédiat après édition de dimensions, réactivation après placement du cadre. Les fenêtres proches/lointaines n’affectent que le pilote de mission 3. Essais matériels et calibration caméra/LiDAR encore nécessaires ; aucun robot réel n’a été modifié pendant ce développement.

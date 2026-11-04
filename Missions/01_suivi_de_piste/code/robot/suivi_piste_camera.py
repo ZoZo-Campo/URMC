@@ -70,15 +70,15 @@ class LaneTracker:
  """Store the geometry of the last accepted pair for diagnostics."""
  def __init__(self):self.width=160.;self.sides={};self.history={};self.last_accepted=None
 
-def lane_details(data,tracker=None):
+def lane_details(data,tracker=None,*,regions=None,min_area=40,min_height=20,image=None):
  """Both borders are required; color does not dictate their left/right position."""
  tracker=tracker if tracker is not None else LaneTracker()
- image=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
+ if image is None:image=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
  if image is None:return dict(error=None,reason='image indecodable')
  cfg=settings()
  hsv=cv2.cvtColor(cv2.resize(image,(320,240)),cv2.COLOR_BGR2HSV)
  attempts=[]
- for top,bottom in ((156,230),(130,200),(110,180)):
+ for top,bottom in (regions if regions is not None else ((156,230),(130,200),(110,180))):
   roi=hsv[top:bottom]
   neutral=roi[:,:,2][roi[:,:,1]<=cfg["white_s"]]
   white_v=max(cfg["white_floor"],min(185,int(np.percentile(neutral,99)*.88))) if neutral.size else 185
@@ -88,8 +88,8 @@ def lane_details(data,tracker=None):
   def center(lo,hi,key):
    mask=cv2.inRange(roi,lo,hi)
    count,labels,stats,centroids=cv2.connectedComponentsWithStats(mask)
-   choices=[i for i in range(1,count) if stats[i,cv2.CC_STAT_AREA]>=40
-     and stats[i,cv2.CC_STAT_HEIGHT]>=20 and stats[i,cv2.CC_STAT_WIDTH]>=3
+   choices=[i for i in range(1,count) if stats[i,cv2.CC_STAT_AREA]>=min_area
+     and stats[i,cv2.CC_STAT_HEIGHT]>=min_height and stats[i,cv2.CC_STAT_WIDTH]>=3
      and stats[i,cv2.CC_STAT_WIDTH]<2.2*stats[i,cv2.CC_STAT_HEIGHT]]
    if recent:
     reference=previous[1][key]

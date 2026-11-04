@@ -23,6 +23,7 @@ from std_srvs.srv import Trigger
 from urmc_core.priority import PriorityBrain,priority_scan,RightTrafficTracker
 from urmc_core.operator_settings import current as settings
 from urmc_core.vision import analyze
+from priority_vision import PriorityVision
 from suivi_piste_camera import prepare_drivers,lane_details,LaneTracker
 LATEST=QoSProfile(depth=1,reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST)
 cv2.setNumThreads(1)
@@ -30,7 +31,7 @@ cv2.setNumThreads(1)
 class PriorityNode(Node):
     def __init__(self,drive=False):
         super().__init__('urmc_right_of_way')
-        self.drive=drive;self.done=False;self.brain=PriorityBrain();self.tracker=LaneTracker()
+        self.vision=PriorityVision();self.views={};self.drive=drive;self.done=False;self.brain=PriorityBrain();self.tracker=LaneTracker()
         self.traffic_tracker=RightTrafficTracker();self.traffic=None;self.pose=None;self.scan={};self.lane={};self.sample_id=None;self.scan_id=None
         self.received={};self.stamps={};self.previous_pose=None;self.finish_count=0
         self.last_image=0.;self.last_log=0.;self.last_state=None;self.v=0.;self.w=0.
@@ -60,7 +61,7 @@ class PriorityNode(Node):
         try:
             image=cv2.imdecode(np.frombuffer(msg.data,np.uint8),cv2.IMREAD_COLOR)
             if image is None:raise ValueError('image indecodable')
-            self.lane=lane_details(msg.data,self.tracker);self.sample_id=stamp
+            self.views=self.vision.observe(msg.data,stamp,settings(),image=image);self.lane=self.views['near'];self.sample_id=stamp
             features=analyze(image)
             self.finish_count=self.finish_count+1 if features['checker'] else 0
             self.lane['intersection']=features['intersection']
@@ -100,7 +101,7 @@ class PriorityNode(Node):
         cfg=settings()
         data=dict(algorithm='priority' if self.drive else 'priority-observe',mode='roulage' if self.drive else 'observation',
             state=state or self.brain.state,reason=self.brain.reason,fresh=fresh,v=self.v,w=self.w,
-            lane_reason=self.lane.get('reason','attente piste'),error=self.lane.get('error'),
+            lane_reason=self.lane.get('reason','attente piste'),error=self.lane.get('error'),vision=self.views,vision_source=self.brain.vision_source,
             traffic=self.traffic,right=self.scan.get('right'),front=self.scan.get('front'),lidar_points=self.scan.get('points',[]),
             right_start=cfg['priority_right_start'],right_end=cfg['priority_right_end'],right_threshold=cfg['priority_right_distance'],
             crossing_distance=round(self.brain.progress,3),crossing_max=cfg['priority_cross_max'],
@@ -118,7 +119,7 @@ class PriorityNode(Node):
         yc,wc=self.lane.get('yellow'),self.lane.get('white')
         obs=dict(fresh=fresh,stale_reason=waiting,pose=self.pose,front=self.scan.get('front'),right=self.scan.get('right'),
                  lane_valid=error is not None,error=error,entry_eligible=yc is None and wc is None,lane_width=abs(wc-yc) if yc is not None and wc is not None else None,
-                 traffic=self.traffic,sample_id=self.sample_id,scan_id=self.scan_id,intersection=self.lane.get('intersection',False),route_confirmed=True)
+                 far_confirmed=self.views.get('far_confirmed',False),far_error=self.views.get('far',{}).get('error'),traffic=self.traffic,sample_id=self.sample_id,scan_id=self.scan_id,intersection=self.lane.get('intersection',False),route_confirmed=True)
         command=self.brain.step(obs,now,cfg)
         v,w=(command.v,command.w) if self.drive else (0.,0.)
         self.v=0. if v==0 else self.v+max(-.005,min(.0015,v-self.v));self.w=0. if v==0 else w

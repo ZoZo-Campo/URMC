@@ -46,7 +46,7 @@ class Viewer(Node):
     def __init__(self,topic,raw,stop_service,overlay="none"):
         super().__init__('urmc_video_readonly')
         self.lock=threading.Lock();self.frame=None;self.received=0;self.frames=0
-        self.lane_tracker=None;self.overlay=overlay;self.source_stamp=None;self.last_processed=0.
+        self.priority_vision=None;self.lane_tracker=None;self.overlay=overlay;self.source_stamp=None;self.last_processed=0.
         self.stop_service=stop_service;self.stop_lock=threading.Lock();self.stop_result=None
         self.create_subscription(Image if raw else CompressedImage,topic,self.raw if raw else self.compressed,LATEST)
         self.stop_client=self.create_client(Trigger,stop_service)
@@ -126,10 +126,18 @@ class Viewer(Node):
             from vision_overlay import diagnostic_view
             import cv2,numpy as np
             if self.lane_tracker is None:self.lane_tracker=LaneTracker()
-            details=lane_details(data,self.lane_tracker)
             decoded=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
             if decoded is None:return
-            self.encode(diagnostic_view(decoded,details,detect(decoded),robot_id=int(os.environ.get('URMC_ROBOT_ID','11')),priority=self.active_mission()[2] if self.active_mission() and self.active_mission()[0]=='priority' else None))
+            active=self.active_mission();priority=active[2] if active and active[0]=='priority' else None
+            if priority:
+                from priority_vision import PriorityVision
+                if self.priority_vision is None:self.priority_vision=PriorityVision()
+                from urmc_core.operator_settings import current as vision_settings
+                views=self.priority_vision.observe(data,stamp,vision_settings(),image=decoded)
+                details=views['far'] if priority.get('vision_source')=='far' else views['near']
+                priority=dict(priority,vision=views)
+            else:details=lane_details(data,self.lane_tracker,image=decoded)
+            self.encode(diagnostic_view(decoded,details,detect(decoded),robot_id=int(os.environ.get('URMC_ROBOT_ID','11')),priority=priority))
         elif data.startswith(b'\xff\xd8'):self.save(data)
         else:
             import cv2,numpy as np

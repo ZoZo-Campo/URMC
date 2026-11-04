@@ -16,17 +16,26 @@ Par défaut : 5 cm/s en suivi, 3,75 cm/s en traversée, rayon de priorité 80 cm
 
 La distance affichée est mesurée depuis le LiDAR embarqué jusqu’aux points de la cible : ce n’est pas une distance entre les deux centres de robots. Le mode distance prend aussi en compte une cible immobilisée. **Exiger une approche observée = 1** active un filtre de mouvement ; en mode 0, c’est la zone, le gabarit et la distance qui décident. Le suivi compense le mouvement de notre robot avec l’odométrie. Une cible déjà vue en approche reste retenue si elle s’arrête ou disparaît brièvement.
 
+## Vision proche et lointaine — uniquement mission 3
+
+Le pilote analyse deux fenêtres indépendantes dans chaque image compressée : **proche** (y = 156 à 230 sur une image de 240 px) et **lointaine** (par défaut 38 à 65 % de la hauteur). Les missions 1 et 2 gardent leur perception habituelle.
+
+L’approche et le suivi après le carrefour utilisent la fenêtre proche. Pendant la traversée, trois images lointaines cohérentes peuvent aider doucement l’alignement ; le cap mémorisé, le contrôle odométrique et les limites de déviation restent actifs. Des lignes visibles au loin ne suffisent jamais à terminer la traversée. Après la distance minimale réglée, trois images distinctes montrant **les deux bordures proches** rendent la main au suivi proche. Une seule bordure ne suffit pas.
+
+Un objet bloquant à droite ou devant impose toujours l’arrêt, même si les lignes lointaines sont visibles. Après son départ, plusieurs scans et le délai de droite libre doivent être confirmés avant de repartir. La vidéo indique **PROCHE**, **LOIN** ou **CAP** et montre les deux fenêtres. Les fenêtres sont des zones d’image, pas des distances métriques : leur réglage dépend de l’inclinaison et de la hauteur de la caméra.
+
 ## Voir et régler
 
 La vidéo conserve les barycentres et les trois masques et ajoute l’état de priorité, les distances, la progression et un petit radar. La carte LiDAR sous la vidéo montre les mesures brutes, la zone de priorité et les cibles T1, T2… avec leur distance et leur mouvement. Rouge = cible retenue ; orange = analyse en cours ; gris = autre mesure.
 
-Dans **Réglages → Priorité à droite** : distance objet–robot, secteur angulaire, limite avant de la voie, gabarit, filtre de mouvement, délai de libération et longueur maximale sans lignes. Vérifier qu’un objet physiquement à droite s’affiche à droite sur la carte. Corriger l’orientation LiDAR si nécessaire, à l’arrêt.
+Dans **Paramètres → Priorité à droite** (ou **Missions → Réglages mission 3**) : distance objet–robot, secteur angulaire, limite avant de la voie, gabarit, filtre de mouvement, délai de libération et longueur maximale sans lignes. Vérifier qu’un objet physiquement à droite s’affiche à droite sur la carte. Corriger l’orientation LiDAR si nécessaire, à l’arrêt.
 
 Le LiDAR 2D ne reconnaît pas sémantiquement un robot ou une personne. Une personne hors de la zone est ignorée pour la priorité ; une personne dans la zone et du même gabarit peut être retenue. Les obstacles devant et les objets très proches restent des motifs d’arrêt. Le gabarit apparent dépend de la hauteur du LiDAR et de la face visible du robot adverse.
 
 ## Code associé
 
 - `code/robot/mission_priorite.py` : nœud ROS 2 matériel, abonnement au flux **compressé**, `/scan`, `/odom`, publication `/cmd_vel` et `/urmc/priority/status`.
+- `code/robot/priority_vision.py` : deux fenêtres proches/lointaines, avec confirmations indépendantes.
 - `code/perception/priority.py` : décisions et suivi des cibles, partagés avec la simulation.
 - `../../kit_robot/vision_overlay.py` et `retour_video.py` : vidéo et lecture LiDAR permanente.
 - `../../tools/operator_console.py` : interface et installation sur le robot sélectionné.

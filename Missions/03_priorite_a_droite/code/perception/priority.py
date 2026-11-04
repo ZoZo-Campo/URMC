@@ -29,7 +29,7 @@ class PriorityBrain(BaseBrain):
         self.good_frames=0;self.entry_frames=0;self.reacquire_frames=0;self.lane_width=None
         self.image_id=None;self.clear_scan=None;self.clear_frames=0;self.last_step=None
         self.progress=0.;self.lateral=0.;self.reason='Attente des capteurs';self.telemetry={}
-        self.handled=False
+        self.handled=False;self.vision_source='near'
 
     def lane(self,o):
         error=o.get('error',0.)
@@ -109,18 +109,23 @@ class PriorityBrain(BaseBrain):
                 self.reacquire_frames=self.reacquire_frames+1 if lane and abs(o['error'])<.35 and not cue else 0
             if self.progress>=cfg['priority_cross_min'] and self.reacquire_frames>=3:
                 self.handled=True;self.state='DONE' if self.finish_after_cross else 'FOLLOW_AFTER_INTERSECTION'
-                self.reason='Deux bordures retrouvees'
+                self.vision_source='near';self.reason='Deux bordures proches retrouvees'
                 return self.result()  # One zero cycle before returning to visual steering.
             heading_error=wrap(self.heading-pose[2])
             if abs(heading_error)>.5:
                 self.state='FAULT';self.reason='Cap de traversee perdu';return self.result()
-            self.reason='Tout droit au cap memorise, recherche des deux bordures'
-            w=max(-.25,min(.25,cfg['priority_heading_gain']*heading_error-1.2*self.lateral))
+            self.reason='Tout droit au cap memorise, recherche des bordures proches'
+            self.vision_source='heading'
+            far_error=o.get('far_error');far_correction=0.
+            if not lane and o.get('far_confirmed') and isinstance(far_error,(int,float)) and math.isfinite(far_error) and abs(far_error)<=.5:
+                far_correction=max(-.06,min(.06,-.15*self.kp*far_error));self.vision_source='far'
+                self.reason='Lignes lointaines confirmees ; cap de traversee conserve, attente des lignes proches'
+            w=max(-.25,min(.25,cfg['priority_heading_gain']*(heading_error+far_correction)-1.2*self.lateral))
             return self.result(self.speed*.75/(1+2*abs(heading_error)),w)
         if self.state=='FOLLOW_AFTER_INTERSECTION':
             if not lane:self.reason='Bordures absentes apres intersection';return self.result()
             if front<=cfg['priority_front_stop']:self.reason='Obstacle devant';return self.result()
-            self.reason='Suivi repris apres intersection';return self.lane(o)
+            self.vision_source='near';self.reason='Suivi proche repris apres intersection';return self.lane(o)
         return self.result()
 
 

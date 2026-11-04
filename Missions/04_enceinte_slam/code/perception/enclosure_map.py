@@ -95,13 +95,14 @@ def validate_route(route,grid,radius=.12):
     return {key:[float(v) for v in point] for key,point in route.items()}
 
 
-def plan_goal(grid,start,goal,radius,points=(),allow_nearby=False,allow_start=False):
+def plan_goal(grid,start,goal,radius,points=(),allow_nearby=False,allow_start=False,goal_filter=None):
     candidates=[goal]
     if allow_nearby:
         for distance in (.15,.25):
             candidates.extend((goal[0]+distance*math.cos(a),goal[1]+distance*math.sin(a)) for a in np.linspace(0,2*math.pi,8,endpoint=False))
     clearance=grid.blocked(radius+.045,points)
     for target in candidates:
+        if goal_filter is not None and not goal_filter(target):continue
         cell=grid.cell(*target)
         if not grid.inside(cell) or clearance[cell[1],cell[0]]:continue
         path=astar(grid,start,target,radius,points,allow_start=allow_start)

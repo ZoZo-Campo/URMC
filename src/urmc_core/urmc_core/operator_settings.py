@@ -31,6 +31,8 @@ SCHEMA={
  'priority_clear_delay':(1.,.5,3.,.1,'Confirmation droite libre (s)','Priorité à droite'),
  'priority_cross_min':(.30,.1,.8,.05,'Reprise des lignes après au moins (m)','Priorité à droite'),
  'priority_cross_max':(1.,.4,1.8,.05,'Distance maximale sans lignes (m)','Priorité à droite'),
+ 'priority_far_top':(38,20,60,1,'Vision lointaine : haut (% image)','Mission 3 · Vision'),
+ 'priority_far_bottom':(65,45,75,1,'Vision lointaine : bas (% image)','Mission 3 · Vision'),
  'priority_heading_gain':(1.5,.5,3.,.1,'Correction du cap sans lignes','Priorité à droite'),
  'm4_speed':(.10,.02,.15,.01,'Vitesse mission 4 (m/s)','Enceinte / SLAM'),
  'm4_radius':(.105,.09,.16,.005,'Rayon physique du robot (m)','Enceinte / SLAM'),
@@ -52,6 +54,7 @@ def validate(values):
   if isinstance(default,int) and int(value)!=value:raise ValueError('Valeur entière attendue : '+key)
   result[key]=int(value) if isinstance(default,int) else float(value)
  if result['yellow_low']>=result['yellow_high'] or result['blue_low']>=result['blue_high']:raise ValueError('La teinte minimum doit être inférieure au maximum.')
+ if result['priority_far_bottom']-result['priority_far_top']<10:raise ValueError('La fenêtre lointaine de mission 3 doit couvrir au moins 10 % de l’image.')
  if result['priority_size_min']>=result['priority_size_max']:raise ValueError('Le gabarit minimal doit être inférieur au maximal.')
  if result['priority_right_start']>=result['priority_right_end']:raise ValueError('Le début du secteur droit doit précéder sa fin.')
  if result['priority_cross_min']>=result['priority_cross_max']:raise ValueError('La distance minimale doit être inférieure à la distance maximale.')

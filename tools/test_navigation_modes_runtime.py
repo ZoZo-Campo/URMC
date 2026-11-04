@@ -21,7 +21,7 @@ def main():
     try:
         spin(1.);actor.start_local();spin(.8)
         assert actor.mode=='local' and actor.slam_process is None and actor.camera_sub is None
-        goal=[1.55,0.];actor.set_route(dict(map_id=actor.map_id,key='exit',point=goal))
+        goal=[1.98,0.];actor.set_route(dict(map_id=actor.map_id,key='exit',point=goal))
         arena.set_parameters([Parameter('obstacles',value=True)]);spin(.5)
         actor.run_navigation(actor.map_id,'goal');start=time.monotonic();detour=False;last=0
         while time.monotonic()-start<58:

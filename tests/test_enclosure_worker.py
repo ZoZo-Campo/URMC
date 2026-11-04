@@ -92,3 +92,25 @@ def test_no_slam_view_export_has_no_fake_pose_graph(actor,monkeypatch):
  assert (folder/'map.pgm').exists() and not (folder/'slam.posegraph').exists()
  grid,meta=actor.store.load(result['name']);assert meta['navigation_mode']=='local'
  assert actor.store.list()[0]['has_graph'] is False
+
+
+def test_full_enclosure_requires_reference_and_outside_departure(actor,monkeypatch):
+ import numpy as np
+ from urmc_core.enclosure_map import Grid
+ actor.grid=Grid(np.zeros((100,120)),.04,(-1.,-2.,0.));actor.zone=[-.7,-1.,2.,1.];actor.map_id='m';actor.mode='localization';actor.confirmed=True
+ actor.route=dict(entry=[-.18,0.],inside=[.7,0.],exit=[1.58,0.]);actor.pose=(.4,0,0)
+ monkeypatch.setattr(actor,'sensors',lambda:(True,'test'))
+ with pytest.raises(ValueError):actor.run_navigation('m')
+ actor.enclosure=dict(width=1.,depth=1.25,origin=[0.,-.5,0.])
+ with pytest.raises(ValueError):actor.run_navigation('m')
+ assert actor.pub is None
+ actor.pose=(-.4,0,0);actor.run_navigation('m')
+ assert actor.active and actor.phase=='ENTRY'
+
+
+def test_location_badge_accounts_for_robot_footprint(actor):
+ import numpy as np
+ from urmc_core.enclosure_map import Grid
+ actor.grid=Grid(np.zeros((100,120)),.04,(-1.,-2.,0.));actor.enclosure=dict(width=1.,depth=1.25,origin=[0.,-.5,0.])
+ for point,location in [((-.4,0,0),'outside'),((-.05,0,0),'boundary'),((.5,0,0),'inside')]:
+  actor.pose=point;actor.cache_snapshot(True);assert actor.snapshot()['enclosure_location']==location

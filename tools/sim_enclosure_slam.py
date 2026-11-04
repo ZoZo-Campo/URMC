@@ -14,7 +14,7 @@ from retour_video import Viewer,make_handler,PAGE
 from http.server import ThreadingHTTPServer
 import threading
 PREFIX='/urmc_sim/m04_slam'
-WALLS=[(0,-.65,1.6,-.65),(0,.65,1.6,.65),(0,-.65,0,-.25),(0,.25,0,.65),(1.6,-.65,1.6,-.25),(1.6,.25,1.6,.65),(-.8,-1.2,2.5,-1.2),(-.8,1.2,2.5,1.2),(-.8,-1.2,-.8,1.2),(2.5,-1.2,2.5,1.2)]
+WALLS=[(0,-.5,1.25,-.5),(0,.5,1.25,.5),(0,-.5,0,-.25),(0,.25,0,.5),(1.25,-.5,1.25,-.25),(1.25,.25,1.25,.5),(-.8,-1.2,2.5,-1.2),(-.8,1.2,2.5,1.2),(-.8,-1.2,-.8,1.2),(2.5,-1.2,2.5,1.2)]
 class Arena(Node):
  def __init__(self):
   super().__init__('enclosure_bench');self.x=-.4;self.y=0.;self.yaw=0.;self.v=self.w=0.;self.last=time.monotonic();self.command_time=0.

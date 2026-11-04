@@ -48,3 +48,5 @@ Les cartes, graphes SLAM, réglages de session, jetons, journaux, résultats gé
 **Vue d’ensemble** rassemble les états de connexion, caméra, LiDAR, vitesse commandée, pilotage et limite de vitesse. Le curseur est en cm/s ; il distingue le manuel/missions caméra de la mission 4. Déplacer le curseur ne fait aucun envoi. Le bouton Appliquer conserve les autres réglages et ne démarre aucune mission. La vitesse commandée n’est pas une mesure de vitesse physique.
 
 **Paramètres** rassemble les couleurs et les réglages détaillés par mission. **Missions autonomes**, **Enceinte / SLAM**, **Simulations** et **Mode d’emploi** gardent leurs fonctions. Les essais visuels de cette refonte ont lieu en démonstration ; aucun robot n’est modifié ni lancé pendant ces vérifications.
+
+Les cartes de mission 3 et 4 donnent maintenant accès directement à leurs paramètres. La mission 3 affiche sa source de vision proche/lointaine et ses deux fenêtres. L’enceinte a un cadre métrique de 1 × 1,25 m à aligner sur les murs LiDAR, conservé avec la carte. Le parcours complet exige le départ et les repères A/C dehors et B dedans ; le test libre au point d’arrivée reste distinct.

@@ -29,10 +29,10 @@ def drive(target):
   time.sleep(.08)
  else:raise AssertionError(('manuel bloqué',s['pose'],s['reason']))
  seq+=1;action('manual',seq=seq,active=False);print('Manuel arrivé',s['pose'],flush=True)
-if '--resume' not in sys.argv:drive(1.95);drive(-.4)
+if '--resume' not in sys.argv:drive(1.62);drive(-.4)
 time.sleep(1)
-s=snapshot();mid=s['map_id'];action('zone',map_id=mid,zone=[-.6,-.65,2.2,.65])
-for key,p in dict(entry=[-.18,0.],inside=[.98,0.],exit=[1.92,0.]).items():action('route',map_id=mid,key=key,point=p)
+s=snapshot();mid=s['map_id'];action('zone',map_id=mid,zone=[-.6,-.5,1.85,.5])
+for key,p in dict(entry=[-.18,0.],inside=[.98,.30],exit=[1.58,0.]).items():action('route',map_id=mid,key=key,point=p)
 r=action('save',map_id=mid,name='validation_enceinte');name=r['name'];print('Sauvegarde',name,flush=True)
 r=urllib.request.Request(URL+'/export?name='+name,headers={'Authorization':'Bearer '+TOKEN})
 with urllib.request.urlopen(r) as response:payload=response.read()
@@ -50,6 +50,8 @@ while time.monotonic()-start<65:
  if s.get('pose') and abs(s['pose'][1])>.15:detour=True
  if s['phase'] in ('DONE','FAULT','TIMEOUT'):break
  time.sleep(.2)
+assert s.get('enclosure',{}).get('width')==1. and s['enclosure']['depth']==1.25
+assert s['enclosure_location']=='outside'
 assert s['phase']=='DONE',(phases,s['pose'],s['reason']);assert detour;assert s['remaining']>0
 print('OK : vrai SLAM, graph sauvegardé/rechargé, localisation confirmée, obstacle absent de la carte contourné, entrée/intérieur/sortie et arrêt.',flush=True)
 action('stop')

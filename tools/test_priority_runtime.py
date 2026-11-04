@@ -33,7 +33,7 @@ def main():
     scan_pub=sensor.create_publisher(LaserScan,'/urmc_test/priority/scan',qos_profile_sensor_data)
     odom_pub=sensor.create_publisher(Odometry,'/urmc_test/priority/odom',qos_profile_sensor_data)
     commands=[];sensor.create_subscription(Twist,'/urmc_test/priority/cmd_vel',lambda m:commands.append((m.linear.x,m.angular.z)),1)
-    x=y=yaw=0.;states=[];yield_time=None;seen_block=False;crossed_without_lines=False;finished=False
+    x=y=yaw=0.;states=[];yield_time=None;seen_block=False;crossed_without_lines=False;far_guided=False;finished=False
     start=last=time.monotonic();last_sensor=0.;waiting_since=None;pause_done=False
     try:
         while time.monotonic()-start<52:
@@ -56,6 +56,8 @@ def main():
                 send_image=waiting_since is None or pause_done
                 if send_image:
                     image=scene(x,y,yaw,3,elapsed)
+                    if state=='CROSS' and .78<x<1.02:
+                        image=scene(0.,y,yaw,3,elapsed);image[156:]=(65,65,65)
                     msg=CompressedImage();msg.header.stamp=stamp;msg.format='jpeg';msg.data=cv2.imencode('.jpg',image)[1].tobytes();image_pub.publish(msg)
                 odom=Odometry();odom.header.stamp=stamp;odom.pose.pose.position.x=x;odom.pose.pose.position.y=y;odom.pose.pose.orientation.z=math.sin(yaw/2);odom.pose.pose.orientation.w=math.cos(yaw/2);odom_pub.publish(odom)
                 last_sensor=now
@@ -64,15 +66,16 @@ def main():
             if actor.traffic and actor.traffic.get('blocked') and actor.brain.state=='YIELD':
                 seen_block=True;assert actor.v==0
             if waiting_since and not pause_done and now-waiting_since>.4:assert actor.v==0,'Camera outage did not stop'
+            if actor.brain.vision_source=='far':far_guided=True
             if actor.brain.state=='CROSS' and .6<x<1.0 and actor.v>0:crossed_without_lines=True
             if actor.brain.state=='FOLLOW_AFTER_INTERSECTION' and actor.v>0:finished=True;break
             assert not actor.done,actor.brain.reason
         assert finished,(states,x,actor.brain.reason)
-        assert seen_block and crossed_without_lines and pause_done,(seen_block,crossed_without_lines,pause_done)
+        assert seen_block and crossed_without_lines and pause_done and far_guided,(seen_block,crossed_without_lines,pause_done,far_guided)
         assert abs(y)<.08 and all(0<=v<=.05001 and abs(w)<=.251 for v,w in commands)
         assert '/cmd_vel' not in dict(sensor.get_topic_names_and_types())
         actor.stop('fin test');assert actor.v==0
-        print('OK : cible approchant de droite, attente, depart apres disparition confirmee, traversee sans lignes au cap, pause camera et reprise, recuperation des deux bordures ; aucun moteur reel. '+json.dumps(states))
+        print('OK : cible approchant de droite, attente, depart apres disparition confirmee, traversee sans lignes au cap, pause camera et reprise, vision lointaine seule puis recuperation des deux bordures proches ; aucun moteur reel. '+json.dumps(states))
     finally:
         actor.destroy_node();sensor.destroy_node();executor.shutdown();rclpy.shutdown()
 if __name__=='__main__':main()
