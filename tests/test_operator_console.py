@@ -22,7 +22,7 @@ def test_refuses_invalid_settings(values):
 def test_switching_mode_revokes_manual_lease(tmp_path):
  processes=[]
  def popen(*_,**__):p=Process();processes.append(p);return p
- controller=Controller(tmp_path,popen)
+ controller=Controller(tmp_path,popen,power=lambda:{"enabled":True})
  lease=controller.start('manual')['lease']
  controller.manual(dict(lease=lease,seq=1,active=True,hold='a',x=1,yaw=0))
  assert json.loads(processes[0].stdin.getvalue().splitlines()[-1])['x']==1
@@ -32,7 +32,7 @@ def test_switching_mode_revokes_manual_lease(tmp_path):
  controller.stop();assert controller.state()['mode']=='idle'
 
 def test_refuses_old_manual_packet(tmp_path):
- controller=Controller(tmp_path,lambda *a,**kw:Process());lease=controller.start('manual')['lease']
+ controller=Controller(tmp_path,lambda *a,**kw:Process(),power=lambda:{"enabled":True});lease=controller.start('manual')['lease']
  data=dict(lease=lease,seq=2,active=False);controller.manual(data)
  with pytest.raises(ValueError):controller.manual(dict(data,seq=1,active=True,x=1,yaw=0,hold='old'))
  controller.stop()
@@ -51,7 +51,7 @@ def test_http_console_requires_origin_and_token():
  finally:server.shutdown();server.server_close()
 
 def test_delayed_start_cannot_override_stop(tmp_path):
- controller=Controller(tmp_path,lambda *a,**kw:Process())
+ controller=Controller(tmp_path,lambda *a,**kw:Process(),power=lambda:{"enabled":True})
  server=ThreadingHTTPServer(('127.0.0.1',0),handler(controller,'robot-token'));threading.Thread(target=server.serve_forever,daemon=True).start()
  url='http://127.0.0.1:'+str(server.server_port)
  def post(path,data):return urllib.request.urlopen(urllib.request.Request(url+path,data=json.dumps(data).encode(),headers={'Authorization':'Bearer robot-token'}))
@@ -161,7 +161,7 @@ def test_priority_modes_and_lidar_monitor_keep_robot_identity(tmp_path):
 
 
 def test_enclosure_replaces_manual_without_a_second_motor_process(tmp_path):
- controller=Controller(tmp_path,lambda *a,**kw:Process())
+ controller=Controller(tmp_path,lambda *a,**kw:Process(),power=lambda:{"enabled":True})
  class Maps:
   def __init__(self):self.active=False;self.map_id=None
   def stop(self,required=False):self.active=False
@@ -220,7 +220,7 @@ def test_failed_profile_save_keeps_current_connection(tmp_path,monkeypatch):
 
 
 def test_speed_settings_preserve_other_parameters_and_do_not_start(tmp_path):
- controller=Controller(tmp_path,lambda *a,**kw:Process())
+ controller=Controller(tmp_path,lambda *a,**kw:Process(),power=lambda:{"enabled":True})
  initial=controller.settings();controller.save_settings(dict(initial,white_s=40,speed=.035))
  updated=controller.settings()
  assert updated['speed']==.035 and updated['white_s']==40
@@ -230,7 +230,7 @@ def test_speed_settings_preserve_other_parameters_and_do_not_start(tmp_path):
 def test_finish_target_is_scoped_to_one_follow_run_and_never_to_barrier(tmp_path):
  calls=[]
  def launch(*args,**kwargs):calls.append(kwargs);return Process()
- controller=Controller(tmp_path,launch)
+ controller=Controller(tmp_path,launch,power=lambda:{"enabled":True})
  controller.start('follow-robust',finish='stop')
  assert calls[-1]['env']['URMC_FINISH_TARGET']=='stop'
  assert controller.settings()['speed']==DEFAULTS['speed']
@@ -247,3 +247,16 @@ def test_invalid_settings_stop_both_camera_and_enclosure_speeds(tmp_path,monkeyp
  from urmc_core import operator_settings as settings
  path=tmp_path/'settings.json';path.write_text('broken');monkeypatch.setenv('URMC_SETTINGS_FILE',str(path));monkeypatch.setattr(settings,'_checked',0.)
  cfg=settings.current();assert cfg['speed']==0 and cfg['m4_speed']==0
+
+
+def test_motor_mode_confirms_power_before_launch_and_observation_does_not(tmp_path):
+ events=[]
+ def power():events.append('power');return {'enabled':True}
+ def launch(*a,**kw):events.append('launch');return Process()
+ c=Controller(tmp_path,launch,power=power)
+ c.start('manual');assert events==['power','launch'];c.stop()
+ events.clear();c.start('observe');assert events==['launch'];c.stop()
+ def fail():raise ValueError('OpenCR absent')
+ c.power=fail;events.clear()
+ with pytest.raises(ValueError,match='OpenCR'):c.start('manual')
+ assert events==[] and c.process is None and c.lease is None

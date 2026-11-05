@@ -107,3 +107,15 @@ Contrôles à l’arrêt sur 10 secondes : caméra compressée décodable 320 ×
 **Réserve avant roulage :** contrôle LiDAR sur 20 scans : 87,8 à 89,4 % de distances valides, environ 40 valeurs nulles sur 360, notamment entre 30° et 80°. Le LiDAR est déclaré dégagé par l’opérateur. Ces valeurs ne permettent pas de conclure à une panne ; leur cause reste à caractériser. Le superviseur conserve son seuil de qualité de 90 % et bloque le départ. Ne pas confondre « serveurs Nav2 prêts » et « mission prête à rouler ».
 
 Les essais moteurs et l’évaluation sur piste restent à réaliser avec l’opérateur.
+
+## Correction du pilotage pendant la cartographie — 5 novembre 2026
+
+Deux causes identifiées sur robot 11 : les flèches SLAM étaient désactivées par le critère LiDAR de navigation autonome ; l’OpenCR remontait `torque=false`. Les flèches utilisent désormais le bail de commande manuel explicite (identique à la vue principale), et l’activation de chaque mode moteur vérifie le couple via `/motor_power` et `/sensor_state`. Les observations sans moteurs ne l’activent pas. Un appui maintenu reste nécessaire pour produire une vitesse non nulle.
+
+La cartographie et la pose restent actualisées avec les retours LiDAR valides même si leur proportion ne permet pas le départ autonome. Le seuil de 90 % pour l’autonomie est conservé. Le diagnostic donne désormais le pourcentage et la couverture mesurés.
+
+Validation : 236 tests unitaires passent, tests JavaScript des baux/commandes/états SLAM, test ROS isolé du superviseur jusqu’aux vitesses sur un topic de test avec relâchement, expiration et STOP. La sauvegarde/reprise du graphe en mode cartographie est validée sans déplacement dans le simulateur. Le banc exporte le même domaine ROS pour le simulateur et le moniteur.
+
+Sur robot : couple actif confirmé sans éditeur de vitesse ; carte sauvegardée et reprise sans repartir de zéro ; position à nouveau récente (environ 0,1 s). Aucun essai de déplacement physique n’a été déclenché par l’assistant pendant cette correction.
+
+Contrôle final dans le navigateur réel : bouton Conduire activé, couple confirmé actif, pilote en état MANUAL, quatre flèches disponibles malgré la qualité LiDAR insuffisante pour l’autonomie. Aucun appui directionnel déclenché ; commandes observées au repos. Le chargement ROS est réutilisé par les enfants du superviseur pour éviter les expirations de délai, et les flèches attendent le premier état MANUAL du pilote avant d’accepter un appui.

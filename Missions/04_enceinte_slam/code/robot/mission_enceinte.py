@@ -53,7 +53,7 @@ class EnclosureNode(Node):
         self.entrance=EntranceGate();self.entry_goal=None;self.sign_confirmation=VisualConfirmation();self.sign_candidate={};self.task='enclosure';self.local_view=None;self.local_origin=None;self.local_fault=False;self.odom_pose=None;self.odom_motion=None;self.measured_speed=0.;self.measured_rotation=0.;self.live_layer=LiveGridLayer();self.camera_enabled=False;self.camera_watch=CameraWatch();self.camera_sub=None
         self.phase='IDLE';self.reason='Créer une carte ou charger une carte existante.';self.pub=None;self.locks=[]
         self.raw_scan=None;self.scan_received=0.;self.odom_received=0.;self.odom_stamp=0.;self.pose=None;self.pose_stamp=0.;self.local_points=[];self.world_points=[]
-        self.scan_good=False;self.sensor_reason='Attente LiDAR / TF';self.map_received=0.;self.previous_pose=None;self.path=[];self.plan=None;self.plan_time=0.;self.plan_target=None;self.last_replan=0.;self.epoch=0
+        self.scan_quality={};self.scan_good=False;self.sensor_reason='Attente LiDAR / TF';self.map_received=0.;self.previous_pose=None;self.path=[];self.plan=None;self.plan_time=0.;self.plan_target=None;self.last_replan=0.;self.epoch=0
         self.pool=concurrent.futures.ThreadPoolExecutor(max_workers=1);self.commands=queue.Queue();self.action_lock=threading.Lock();self.snapshot_lock=threading.Lock();self.cached={};self.png_revision=-1;self.png=None
         self.started=None;self.entered=None;self.finished_at=None;self.v=self.w=0.;self.last_status=0.;self.last_snapshot=0.;self.job='';self.battery=None;self.seed_time=None
         self.manual_deadline=0.;self.manual_seq=-1;self.manual_expired=None;self.manual_hold=None
@@ -83,6 +83,7 @@ class EnclosureNode(Node):
         if self.raw_scan is not None and stamp(msg)<=stamp(self.raw_scan):return
         valid=sum(r==math.inf or (math.isfinite(r) and msg.range_min<=r<=msg.range_max) for r in msg.ranges)
         coverage=msg.angle_increment*len(msg.ranges)
+        self.scan_quality=dict(valid_percent=round(100*valid/len(msg.ranges),1),coverage_degrees=round(math.degrees(coverage),1),invalid_count=len(msg.ranges)-valid)
         self.scan_good=valid/len(msg.ranges)>=.90 and coverage>=math.radians(350)
         self.raw_scan=msg;self.scan_received=time.monotonic()
     def odom(self,msg):
@@ -132,7 +133,7 @@ class EnclosureNode(Node):
         return {'success':True,'message':'Assistance caméra d’essai activée ; attendre une image récente.' if self.camera_enabled else 'Assistance caméra désactivée : navigation LiDAR uniquement.'}
     def sensors(self):
         now=time.monotonic();clock=self.get_clock().now().nanoseconds/1e9
-        if not self.scan_good or self.raw_scan is None or not 0<=now-self.scan_received<.3 or not 0<=clock-stamp(self.raw_scan)<.3:return False,'LiDAR absent, périmé ou couverture incomplète'
+        if self.raw_scan is None or not 0<=now-self.scan_received<.3 or not 0<=clock-stamp(self.raw_scan)<.3:return False,'LiDAR absent ou périmé'
         if self.odom_pose is None or not 0<=now-self.odom_received<.3 or not 0<=clock-self.odom_stamp<.3:return False,'Odométrie absente ou périmée'
         try:
             if self.mode=='local':
@@ -166,6 +167,7 @@ class EnclosureNode(Node):
             if self.mode=='local' and self.local_view is not None:
                 if self.local_view.observe(origin,rays,stamp(self.raw_scan)):self.grid=self.local_view.grid;self.revision+=1
             elif self.mode=='localization' and self.grid is not None:self.live_layer.observe(self.grid,origin,rays,stamp(self.raw_scan))
+            if not self.scan_good:return False,'Navigation autonome suspendue : LiDAR '+str(self.scan_quality.get('valid_percent','?'))+' % valide (minimum 90 %), couverture '+str(self.scan_quality.get('coverage_degrees','?'))+'°'
             return True,'Capteurs et position récents'
         except Exception:return False,'TF map → base_footprint ou base → LiDAR indisponible' if self.mode!='local' else 'Transformation base → LiDAR indisponible'
     def acquire_motors(self):
@@ -338,7 +340,7 @@ class EnclosureNode(Node):
         if now-self.last_status>.3:
             self.status.publish(String(data=json.dumps(self.summary())));self.last_status=now
     def summary(self):
-        return dict(sensor_reason=self.sensor_reason,available=True,nav2_available=self.nav2_available,nav2=self.nav2.report() if self.nav2 else dict(available=self.nav2_available,ready=False,running=False),navigation_backend='local' if self.mode=='local' else 'Nav2',simulation=self.simulation,slam_available=self.slam_share is not None,active=self.active,phase=self.phase,reason=self.reason,mode=self.mode,navigation_mode='local' if self.mode=='local' else 'slam',task=self.task,entrance=self.entrance.result,camera=self.camera_state(),map_id=self.map_id,selected=self.selected,confirmed=self.confirmed,v=self.v,w=self.w,job=self.job,robot_id=int(os.environ.get('URMC_ROBOT_ID','11')))
+        return dict(scan_quality=self.scan_quality,sensor_reason=self.sensor_reason,available=True,nav2_available=self.nav2_available,nav2=self.nav2.report() if self.nav2 else dict(available=self.nav2_available,ready=False,running=False),navigation_backend='local' if self.mode=='local' else 'Nav2',simulation=self.simulation,slam_available=self.slam_share is not None,active=self.active,phase=self.phase,reason=self.reason,mode=self.mode,navigation_mode='local' if self.mode=='local' else 'slam',task=self.task,entrance=self.entrance.result,camera=self.camera_state(),map_id=self.map_id,selected=self.selected,confirmed=self.confirmed,v=self.v,w=self.w,job=self.job,robot_id=int(os.environ.get('URMC_ROBOT_ID','11')))
     def cache_snapshot(self,fresh):
         data=self.summary();data.update(pose=self.pose,pose_age=max(0.,self.get_clock().now().nanoseconds/1e9-self.pose_stamp) if self.pose_stamp else None,
             scan_age=max(0.,time.monotonic()-self.scan_received) if self.scan_received else None,odom_age=max(0.,time.monotonic()-self.odom_received) if self.odom_received else None,
@@ -351,26 +353,28 @@ class EnclosureNode(Node):
         with self.snapshot_lock:self.cached=data
     def snapshot(self):
         with self.snapshot_lock:return dict(self.cached)
-    def slam_config(self,mode,graph=None):
+    def slam_config(self,mode,graph=None,start_pose=None):
         if self.slam_share is None:raise ValueError('SLAM Toolbox absent. Installer ros-humble-slam-toolbox avec le script fourni.')
         config=yaml.safe_load((self.slam_share/'config/mapper_params_online_async.yaml').read_text())
         params=config['slam_toolbox']['ros__parameters'];params.update(mode='localization' if mode=='localization' else 'mapping',use_sim_time=False,base_frame='base_footprint',map_frame='map',odom_frame='odom',scan_topic=self.topic('scan'),resolution=.03,map_update_interval=1.,minimum_travel_distance=.04,minimum_travel_heading=.07,minimum_time_interval=.1,max_laser_range=3.5,enable_interactive_mode=False,transform_publish_period=.05)
-        if graph:params.update(map_file_name=str(graph),map_start_pose=[0.,0.,0.],scan_buffer_size=5)
+        if graph:params.update(map_file_name=str(graph),map_start_pose=start_pose or [0.,0.,0.],scan_buffer_size=5)
         path=self.sessions/'slam_active.yaml';path.write_text(yaml.safe_dump(config));return path
     def start_slam(self,mode,data):
         self.ros(lambda:self.stop_navigation())
+        graph=None;grid=meta=None
+        if mode=='localization' or data.get('name'):
+            name=slug(data.get('name'));grid,meta=self.store.load(name)
+            if meta.get('enclosure') is not None:meta['enclosure']=validate_layout(meta['enclosure'])
+            graph=self.store.folder(name)/'slam'
+            if not graph.with_suffix('.posegraph').exists() or not graph.with_suffix('.data').exists():raise ValueError('Graphe SLAM manquant : refaire puis enregistrer la cartographie.')
+        start_pose=data.get('start_pose')
+        if start_pose is not None and (not isinstance(start_pose,list) or len(start_pose)!=3 or not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in start_pose)):raise ValueError('Position de reprise invalide.')
+        config=self.slam_config(mode,graph,start_pose)
         self.close_nav2();stop_process(self.slam_process);self.slam_process=None
         for _ in range(20):
             if not self.count_publishers(self.topic('map')):break
             time.sleep(.1)
         if self.count_publishers(self.topic('map')):raise ValueError('Un autre serveur de carte est actif. L’arrêter avant de créer/recharger une carte.')
-        graph=None;grid=meta=None
-        if mode=='localization':
-            name=slug(data.get('name'));grid,meta=self.store.load(name)
-            if meta.get('enclosure') is not None:meta['enclosure']=validate_layout(meta['enclosure'])
-            graph=self.store.folder(name)/'slam'
-            if not graph.with_suffix('.posegraph').exists() or not graph.with_suffix('.data').exists():raise ValueError('Graphe SLAM manquant : refaire puis enregistrer la cartographie.')
-        config=self.slam_config(mode,graph)
         def reset():
             self.map_id=uuid.uuid4().hex;self.mode=mode;self.selected=data.get('name') if mode=='localization' else None;self.route=meta.get('route',{}) if meta else {};self.enclosure=meta.get('enclosure') if meta else (dict(width=1.,depth=1.25,origin=[0.,-.5,0.]) if self.simulation else None);self.zone=meta.get('zone') if meta else None;self.grid=grid;self.live_layer=LiveGridLayer();self.local_view=None;self.local_origin=None;self.local_fault=False;self.revision+=1;self.confirmed=False;self.seed_time=None;self.previous_pose=None;self.pose=None;self.phase='IDLE';self.reason='Cartographie : parcourir l’enceinte en manuel' if mode=='mapping' else 'Carte chargée : définir puis confirmer la pose'
         self.ros(reset)
@@ -430,6 +434,7 @@ class EnclosureNode(Node):
                     self.nav2=self.ros(lambda:Nav2Bridge(self))
                 if self.nav2.config is not None and self.nav2.config!=current():self.close_nav2()
                 self.nav2.start(current());return {'success':True,'message':'Nav2 démarre sans mouvement. Attendre l’état prêt.'}
+            if action=='resume':return self.start_slam('mapping',data)
             if action=='new':return self.start_slam('mapping',data)
             if action=='local':return self.start_local()
             if action=='camera':return self.ros(lambda:self.set_camera(data))

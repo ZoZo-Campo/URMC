@@ -1,4 +1,7 @@
 """Localhost-only robot supervisor; launches only explicitly listed programs."""
+if __name__=='__main__':
+ from operator_bootstrap import bootstrap
+ bootstrap(__file__)
 import argparse,fcntl,json,os,secrets,signal,subprocess,sys,threading,time,urllib.request
 from collections import deque
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
@@ -19,8 +22,8 @@ ALGORITHMS={
 }
 
 class Controller:
- def __init__(self,root=ROOT,popen=subprocess.Popen):
-  self.root=Path(root);self.popen=popen;self.lock=threading.RLock();self.process=None;self.mode='idle';self.lease=None;self.sequence=-1;self.generation=-1;self.last={};self.events=deque(maxlen=60)
+ def __init__(self,root=ROOT,popen=subprocess.Popen,power=None):
+  self.root=Path(root);self.popen=popen;self.power=power;self.motor_power=None;self.lock=threading.RLock();self.process=None;self.mode='idle';self.lease=None;self.sequence=-1;self.generation=-1;self.last={};self.events=deque(maxlen=60)
   self.directory=self.root/'session_robot11';self.directory.mkdir(exist_ok=True)
   self.mapping=MappingManager(self.root)
   self.settings_path=self.directory/'reglages.json'
@@ -46,6 +49,15 @@ class Controller:
      except subprocess.TimeoutExpired:p.kill();p.wait(timeout=1)
    self.process=None;self.mode='idle';self.last={'state':'STOP','v':0,'w':0}
    return {'success':True,'message':'Mission arrêtée. Vidéo disponible.'}
+ def ensure_motor_power(self):
+  if self.power is not None:result=self.power()
+  else:
+   try:done=subprocess.run([sys.executable,str(self.root/'kit_robot/motor_power.py')],capture_output=True,text=True,timeout=12)
+   except subprocess.TimeoutExpired:raise ValueError('OpenCR ne répond pas : activation moteurs annulée.') from None
+   if done.returncode:raise ValueError((done.stderr or done.stdout).strip()[-500:] or 'Activation moteurs impossible.')
+   result=json.loads(done.stdout)
+  if result.get('enabled') is not True:raise ValueError('Couple moteur non confirmé par OpenCR.')
+  self.motor_power=result
  def start(self,mode,map_id=None,task='enclosure',finish=None):
   if finish is not None and (finish not in ('both','checker','stop') or mode not in ('follow-robust','follow-classic')):raise ValueError('Cible d’arrêt réservée au suivi : both, checker ou stop.')
   if mode not in ALGORITHMS and mode!='enclosure':raise ValueError('Algorithme inconnu.')
@@ -56,6 +68,7 @@ class Controller:
     with (self.root/name).open('w') as h:
      try:fcntl.flock(h,fcntl.LOCK_EX|fcntl.LOCK_NB)
      except BlockingIOError:raise ValueError('Une mission externe tourne. L’arrêter avant de changer de mode.')
+   if mode in ('manual','follow-robust','follow-classic','barrier','priority','enclosure'):self.ensure_motor_power()
    if mode=='enclosure':
     self.mapping.ensure();result=self.mapping.request('/action',dict(action='run',map_id=map_id,task=task));self.mode=mode;return result
    env=os.environ.copy();env['URMC_SETTINGS_FILE']=str(self.settings_path)
@@ -100,7 +113,7 @@ class Controller:
    mapping=self.mapping.summary()
    running=bool(mapping.get('active')) if self.mode=='enclosure' else self.process is not None and self.process.poll() is None
    if self.mode=='enclosure':self.last=dict(mapping,state=mapping.get('phase','IDLE'))
-   return dict(robot_id=int(os.environ.get('URMC_ROBOT_ID','11')),domain=int(os.environ.get('URMC_ROBOT_DOMAIN','41')),connected=True,features=dict(finish_targets=['both','checker','stop'],entry_lidar=True),mode=self.mode if running else 'idle',running=running,status=self.last,mapping=mapping,events=list(self.events),settings=self.settings(),schema=SCHEMA)
+   return dict(motor_power=self.motor_power,robot_id=int(os.environ.get('URMC_ROBOT_ID','11')),domain=int(os.environ.get('URMC_ROBOT_DOMAIN','41')),connected=True,features=dict(finish_targets=['both','checker','stop'],entry_lidar=True),mode=self.mode if running else 'idle',running=running,status=self.last,mapping=mapping,events=list(self.events),settings=self.settings(),schema=SCHEMA)
 
 
 def handler(controller,token):
@@ -140,8 +153,9 @@ def handler(controller,token):
       result=controller.start(data.get('algorithm'),data.get('map_id'),data.get('task','enclosure'),data.get('finish')) if self.path=='/start' else controller.stop()
     elif self.path=='/mapping':
      with controller.lock:
+      controller.mapping.ensure()
       if data.get('action') not in ('manual',):controller.stop()
-      controller.mapping.ensure();result=controller.mapping.request('/action',data,timeout=15)
+      result=controller.mapping.request('/action',data,timeout=15)
     elif self.path=='/manual':result=controller.manual(data)
     elif self.path=='/settings':result={'success':True,'settings':controller.save_settings(data)}
     else:return self.respond({'error':'Action inconnue'},404)

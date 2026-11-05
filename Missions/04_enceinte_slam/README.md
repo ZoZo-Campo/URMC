@@ -161,3 +161,9 @@ Les réglages de la mission 4 contrôlent la vitesse (0,10 m/s par défaut, plaf
 Nav2 reçoit une carte mise à jour, les scans LiDAR et l’odométrie. Ses vitesses sortent sur un topic privé ; seul le superviseur peut publier vers les moteurs. Pas d’AMCL parallèle : SLAM Toolbox fournit déjà la localisation. Un échec de trajet provoque un arrêt explicite.
 
 Installation robot : `bash ~/urmc/kit_robot/installer_mission4.sh`. Journaux : `~/urmc/session_robot11/nav2.log`. Sources : `code/robot/nav2_bridge.py`, `code/robot/nav2_mission.launch.py`, `code/robot/mission_enceinte.py`.
+
+### Pilotage manuel pendant la cartographie
+
+Cliquer **Conduire pour agrandir la carte**, attendre **Manuel prêt**, puis maintenir une flèche. Le couple moteur OpenCR est vérifié et réactivé si nécessaire avant d’autoriser le contrôleur ; cette activation seule ne commande aucun déplacement. Après un rechargement de page, reprendre les commandes avec le même bouton.
+
+Le pilotage manuel et le départ autonome ont des conditions distinctes : la qualité LiDAR peut suspendre la navigation autonome sans désactiver les flèches manuelles de l’opérateur. Les retours valides continuent d’alimenter le SLAM et la position affichée ; les retours invalides ne deviennent pas de l’espace libre. Relâcher la flèche ou perdre le maintien arrête la commande en 250 ms au maximum côté robot.

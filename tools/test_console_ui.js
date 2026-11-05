@@ -9,8 +9,9 @@ function consoleApp(){
  const classes={add(){},remove(){},toggle(){}};
  const context2d=new Proxy({},{get:()=>()=>{},set:()=>true});
  const arrows=[1,2,3,4].map(()=>({disabled:false}));
+ const mapArrows=[1,2,3,4].map(()=>({disabled:false,dataset:{mapX:'1',mapYaw:'0'},classList:classes,setPointerCapture(){}}));
  function element(id){if(!elements.has(id))elements.set(id,{id,value:'',dataset:{},classList:classes,style:{},parentElement:{},getContext:()=>context2d,querySelector:()=>null,querySelectorAll:()=>[],replaceChildren(){},removeAttribute(){},append(){},focus(){},scrollIntoView(){}});return elements.get(id);}
- const sandbox={console,URLSearchParams,AbortSignal,crypto:require('node:crypto').webcrypto,performance,location:{search:''},URL,Image:class {},setTimeout:(fn,ms)=>timers.push([fn,ms]),window:{addEventListener(){}},document:{getElementById:element,querySelector:()=>({content:'test'}),querySelectorAll:s=>s==='.dpad [data-x]'?arrows:[],addEventListener(){},activeElement:null,createElement:()=>element('generated'+Math.random())},fetch:(url,opts)=>{
+ const sandbox={console,URLSearchParams,AbortSignal,crypto:require('node:crypto').webcrypto,performance,location:{search:''},URL,Image:class {},setTimeout:(fn,ms)=>timers.push([fn,ms]),window:{addEventListener(){}},document:{getElementById:element,querySelector:()=>({content:'test'}),querySelectorAll:s=>s==='.dpad [data-x]'?arrows:s==='[data-map-x]'?mapArrows:[],addEventListener(){},activeElement:null,createElement:()=>element('generated'+Math.random())},fetch:(url,opts)=>{
   if(url==='/api/state'){const d=deferred();stateRequests.push(d);return d.promise;}
   if(opts?.method==='POST'){const data=JSON.parse(opts.body);posts.push({url,data});if(url==='/api/start'){const d=deferred();starts.push(d);return d.promise;}if(url==='/api/manual')manual.push(data);return Promise.resolve(response({success:true}));}
   return Promise.reject(Error('No sensor connection in this test'));
@@ -18,7 +19,7 @@ function consoleApp(){
  const ctx=vm.createContext(sandbox);vm.runInContext(fs.readFileSync(path.join(root,'tools/console/app.js'),'utf8'),ctx);
  const run=code=>vm.runInContext(code,ctx);
  run("state={connected:true,robot_id:11,mode:'idle',job:{},settings:{},schema:{}};");
- return {run,element,arrows,stateRequests,starts,manual,posts,timers,ctx};
+ return {run,element,arrows,mapArrows,stateRequests,starts,manual,posts,timers,ctx};
 }
 const idle={robot_id:11,connected:true,mode:'idle',job:{},robots:{},settings:{},schema:{}};
 (async()=>{
@@ -27,6 +28,8 @@ const idle={robot_id:11,connected:true,mode:'idle',job:{},robots:{},settings:{},
  const activation=app.run("start('manual')");app.starts[0].resolve(response({lease:'new-session'}));await activation;
  app.stateRequests[0].resolve(response(idle));await new Promise(setImmediate);
  assert.equal(app.run('lease'),'new-session','an old idle response must not revoke the new manual session');
+ assert(app.arrows.every(b=>b.disabled),'do not accept a direction before the ROS worker is ready');
+ app.run("state.status={state:'MANUAL'};renderManual()");
  app.run('press(1,0)');await new Promise(setImmediate);
  assert.equal(app.manual.at(-1).active,true);assert.equal(app.manual.at(-1).x,1);
  assert.equal(app.manual.at(-1).lease,'new-session');
@@ -65,10 +68,13 @@ const idle={robot_id:11,connected:true,mode:'idle',job:{},robots:{},settings:{},
  app.element('mapSource').value='robot';app.element('mapNavMode').value='slam';
  app.run("mapSimulation=false;state.mode='idle';mapping={available:true,map_id:'live',mode:'mapping',navigation_mode:'slam',fresh:true,map:{},route:{}};renderMapGuide()");
  assert.equal(app.run('mapNextTarget'),'mapManual','a first SLAM scan must lead to exploration, not route preparation');
- app.run("state.mode='manual';renderMapGuide()");assert.equal(app.run('mapNextTarget'),'mapFinishMapping');
+ app.run("state.mode='manual';lease=null;renderMapGuide()");assert.equal(app.run('mapNextTarget'),'mapManual');assert(app.mapArrows.every(b=>b.disabled),'reload must not grant mapping control');
+ app.run("lease='map-session';state.connected=true;state.status={state:'MANUAL'};mapping.fresh=false;renderMapGuide()");assert.equal(app.run('mapNextTarget'),'mapFinishMapping');assert(app.mapArrows.every(b=>!b.disabled),'manual mapping does not require autonomous SLAM quality');
+ app.run("lease=null;renderManual()");assert(app.mapArrows.every(b=>b.disabled),'revoking the lease disables mapping arrows immediately');
+ app.run("lease='map-session';renderManual()");assert(app.mapArrows.every(b=>!b.disabled),'granting a lease enables mapping arrows immediately');
  assert.equal(app.element('mapFinishMapping').disabled,false);
  app.run("mapExploredSession='live';mapSavedSession='live';renderMapGuide()");assert.equal(app.run('mapNextTarget'),'mapPanel2');
  app.run("mapping.zone=[-1,-1,3,3];mapping.route={entry:[0,0],inside:[1,0],exit:[2,0]};mapSavedSession=null;renderMapGuide()");
  assert.equal(app.run('mapNextTarget'),'mapSave','route edits after exploration must be saved before loading the graph');
- console.log('PASS: live mapping explores first and saves route edits before navigation');
+ console.log('PASS: live mapping, manual leases, partial scans and saved route edits');
 })().catch(e=>{console.error(e);process.exitCode=1;});

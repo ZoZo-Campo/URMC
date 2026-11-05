@@ -158,3 +158,33 @@ def test_tunnel_camera_detector_is_opt_in_stationary_and_never_claims_points(act
  assert not actor.camera_state()['tunnel_confirmed']
  actor.set_camera(dict(enabled=False));assert actor.camera_sub is None and not actor.camera_enabled
  assert 'tunnel_confirmed' not in actor.camera_state()
+
+
+def test_partial_scan_updates_mapping_pose_but_cannot_arm_navigation(actor,monkeypatch):
+ import math
+ from sensor_msgs.msg import LaserScan
+ from geometry_msgs.msg import TransformStamped
+ now=actor.get_clock().now().to_msg()
+ scan=LaserScan();scan.header.frame_id='base_scan';scan.header.stamp=now
+ scan.angle_min=0.;scan.angle_increment=2*math.pi/360;scan.range_min=.12;scan.range_max=3.5;scan.ranges=[1.]*320+[0.]*40
+ actor.scan(scan);actor.mode='localization';actor.map_id='partial';actor.confirmed=True
+ actor.odom_pose=(0.,0.,0.);actor.odom_received=time.monotonic();actor.odom_stamp=now.sec+now.nanosec/1e9
+ def transform(*args):
+  t=TransformStamped();t.header.stamp=actor.get_clock().now().to_msg();t.transform.rotation.w=1.;return t
+ monkeypatch.setattr(actor.tf,'lookup_transform',transform)
+ fresh,reason=actor.sensors()
+ assert fresh is False and '90' in reason and actor.scan_quality['invalid_count']==40
+ assert actor.pose==(0.,0.,0.) and len(actor.world_points)==320
+ with pytest.raises(ValueError,match='Navigation autonome suspendue'):actor.run_navigation('partial','goal')
+ assert actor.pub is None and not actor.active
+
+
+def test_invalid_resume_does_not_destroy_current_slam(actor,monkeypatch):
+ import mission_enceinte
+ previous=object();actor.slam_process=previous;called=[]
+ monkeypatch.setattr(actor,'ros',lambda fn,timeout=4:fn())
+ monkeypatch.setattr(mission_enceinte,'stop_process',lambda process:called.append(process))
+ try:
+  with pytest.raises(ValueError,match='Position de reprise'):actor.start_slam('mapping',{'start_pose':[0.,0.]})
+  assert actor.slam_process is previous and called==[]
+ finally:actor.slam_process=None

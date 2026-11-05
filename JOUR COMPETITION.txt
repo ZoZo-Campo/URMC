@@ -162,6 +162,7 @@ confirme le carrefour, traverse sans lignes et reprend les bordures proches.
 
 Mission 4 (6 points + 3 bonus, plus 1 point de panneau à clarifier)
 Créer une carte SLAM → Conduire pour agrandir la carte → maintenir les flèches.
+Attendre Manuel prêt, puis maintenir une flèche. Après rechargement : recliquer Conduire.
 Explorer, puis Enregistrer la carte explorée. Le SLAM reste actif pendant les déplacements.
 Préparer ensuite la zone et A dehors / B dedans / C dehors, puis enregistrer le parcours.
 Avec SLAM : charger la carte, confirmer la position, cliquer Préparer Nav2,

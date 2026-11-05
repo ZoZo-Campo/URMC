@@ -5,7 +5,7 @@ cp -aL /project/src /project/kit_robot /project/tools /ws/
 cd /ws
 colcon build --symlink-install --packages-select urmc_core urmc_mission_04 >/tmp/urmc-slam-build.log 2>&1
 source install/setup.bash
-export URMC_LOCALHOST_ONLY=1 ROS_LOCALHOST_ONLY=1 URMC_ROBOT_DOMAIN=99 URMC_ROBOT_ID=0 URMC_SETTINGS_FILE=/ws/session_robot11/reglages.json
+export ROS_DOMAIN_ID=99 URMC_LOCALHOST_ONLY=1 ROS_LOCALHOST_ONLY=1 URMC_ROBOT_DOMAIN=99 URMC_ROBOT_ID=0 URMC_SETTINGS_FILE=/ws/session_robot11/reglages.json
 mkdir -p session_robot11
 # The simulated worker uses the same explicit settings file as a prepared robot.
 python3 - <<'PYSETTINGS'

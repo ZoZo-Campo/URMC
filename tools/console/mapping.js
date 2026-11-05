@@ -19,6 +19,11 @@ $('mapManual').onclick=async()=>{if(mapSimulation){notice('Banc : maintenir une 
 $('mapManualStop').onclick=mapRelease;
 $('mapPrepareRun').onclick=()=>{if(!$('mapLoad').disabled)$('mapLoad').click();};
 $('mapObstacles').onchange=()=>mapButton(async()=>{await mapAction('obstacles',{enabled:$('mapObstacles').checked});notice('Obstacles du banc mis à jour.');});
+function renderMapManual(){
+ const ready=mapSimulation?!!mapping.available&&!!mapping.fresh&&!mapping.active:manualReady();
+ document.querySelectorAll('[data-map-x]').forEach(b=>b.disabled=!ready);
+ $('mapManualHint').textContent=mapSimulation?'Entraînement : maintenir une flèche pour explorer.':!state.connected?'Robot non connecté.':controlPending||manualStarting()?'Activation du pilote manuel… attendre les flèches.':ready?(!mapping.fresh?'Manuel prêt : maintenir une flèche. Qualité SLAM à vérifier ; le départ autonome reste bloqué.':'Manuel prêt : maintenir une flèche. Relâcher arrête le robot.'):(state.mode==='manual'?'Page rechargée : clique sur Conduire pour reprendre les commandes.':'Clique sur Conduire pour activer les flèches.');
+}
 function mapRelease(){const old=mapManualHold;mapManualHold=null;release();if(old)api('mapping',{simulation:true,action:'manual',seq:++mapManualSeq,active:false}).catch(()=>{});}
 function mapPress(x,y,button){if(!mapSimulation){press(x,y,button);return;}mapRelease();mapManualHold={x,y,hold:crypto.randomUUID()};mapPump();}
 async function mapPump(){if(tab!=='mapping'||!mapSimulation){mapRelease();return;}if(!mapManualHold||mapManualBusy)return;const hold=mapManualHold;mapManualBusy=true;try{await api('mapping',{simulation:true,action:'manual',seq:++mapManualSeq,active:true,...hold,yaw:hold.y});}catch(e){mapRelease();notice(e.message,true);}finally{mapManualBusy=false;if(mapManualHold)setTimeout(mapPump,80);}}
@@ -91,21 +96,21 @@ $('mapNav2Prepare').disabled=mapBusy||!!mapping.active||!mapping.available||!map
  const step=!hasMap||exploring?1:!prepared?2:3;
  document.querySelectorAll('[data-map-step]').forEach(b=>{const n=Number(b.dataset.mapStep);b.classList.toggle('current',n===step);b.classList.toggle('done',n===1?hasMap:n===2?prepared:!!mapping.confirmed&&matches);});
  for(const id of ['mapNew','mapManual','mapSave','mapLoad','mapPrepareRun','mapConfirm','mapSetPose','mapRun','mapClose'])$(id).disabled=mapBusy||!available;
- $('mapNew').disabled||=active;$('mapManual').disabled||=!hasMap||!fresh||active;
+ $('mapNew').disabled||=active;$('mapManual').disabled||=!hasMap||active||(!mapSimulation&&(!state.connected||controlPending||manualStarting()||state.job?.busy));
  $('mapSave').disabled||=!hasMap||!['mapping','local'].includes(mapping.mode)||active;
  const selected=(mapping.maps||[]).find(m=>m.name===$('mapSaved').value);
  $('mapLoad').disabled||=!selected?.has_graph||active||localChoice;$('mapPrepareRun').disabled=$('mapLoad').disabled;
  $('mapSetPose').disabled||=!hasMap||mapping.mode!=='localization'||active;$('mapConfirm').disabled||=mapping.mode!=='localization'||!fresh||active;
  $('mapRun').disabled||=!ready||(mapping.mode!=='local'&&!mapping.nav2?.ready);$('mapClose').disabled||=active;$('mapCameraAssist').disabled=!available||active||mapBusy;if(!mapBusy)$('mapCameraAssist').checked=!!camera.enabled;
  document.querySelectorAll('.map-picks button').forEach(b=>b.disabled=mapBusy||!available||!hasMap||active);
- document.querySelectorAll('[data-map-x]').forEach(b=>b.disabled=!available||!fresh||active||(!mapSimulation&&state.mode!=='manual'));
+ renderMapManual();
  $('mapRoute').textContent=keys.map(k=>{const p=mapping.route?.[k];return (p?'✓ ':'○ ')+({entry:'A · Entrée',inside:'B · Intérieur',exit:'C · Arrivée'}[k])+(p?' : '+p.map(v=>v.toFixed(2)).join(', '):' : à placer');}).join('\n');
  const cameraNames={ATTENTE_IMAGE:'Image absente ou périmée',IMAGE_SOMBRE:'Image trop sombre',CHANGEMENT_A_L_ARRET:'Changement observé à l’arrêt : pause de vérification',IMAGE_RECENTE:'Image récente',DESACTIVEE:'Assistance désactivée'};
  $('mapCameraAnalysis').textContent=camera.enabled?(cameraNames[camera.state]||camera.state)+(camera.brightness!=null?' · luminosité '+camera.brightness:'')+(camera.change_ratio!=null?' · changement '+Math.round(camera.change_ratio*100)+' %':''):'Assistance désactivée : navigation au LiDAR uniquement.';
  let title,hint,label;
  if(!available){title=mapSimulation?'Commence ton entraînement':'Commence avec ton robot';hint=mapSimulation?'Démarre le banc Mac : tous les mouvements resteront simulés.':'Choisis ton robot et connecte-le, ou passe en entraînement sur le Mac.';label=mapSimulation?'Démarrer mon entraînement →':'Connecter mon robot →';mapNextTarget=mapSimulation?'mapSimStart':'connect';}
  else if(!hasMap){title=localChoice?'1 · Observe sans SLAM':'1 · Découvre le terrain';hint=localChoice?'Active la vue locale. Le point de départ devient son origine ; les scans affichent ce qui est réellement observé.':'Crée une carte, ou utilise une version déjà enregistrée.';label=localChoice?'Activer la vue sans SLAM →':'Créer ma carte →';mapNextTarget='mapNew';}
- else if(exploring){title='1 · Construis ta carte en roulant';hint='Maintiens les flèches pour explorer doucement. La carte grandit au fil des déplacements. À l’arrêt, son dessin peut rester identique. Enregistre quand tu as fini.';label=(!mapSimulation&&state.mode!=='manual')?'Prendre les commandes →':'Enregistrer la carte explorée →';mapNextTarget=(!mapSimulation&&state.mode!=='manual')?'mapManual':'mapFinishMapping';}
+ else if(exploring){title='1 · Construis ta carte en roulant';hint='Maintiens les flèches pour explorer doucement. La carte grandit au fil des déplacements. À l’arrêt, son dessin peut rester identique. Enregistre quand tu as fini.';label=(!mapSimulation&&!manualReady())?'Prendre les commandes →':'Enregistrer la carte explorée →';mapNextTarget=(!mapSimulation&&!manualReady())?'mapManual':'mapFinishMapping';}
  else if(!prepared){title=direct?'2 · Choisis ton arrivée':'2 · Prépare le parcours';hint=!zone?'Dessine d’abord la zone autorisée sur la carte.':direct?'Clique sur « Choisir mon arrivée », puis sur le point à atteindre.':'Il reste '+(keys.length-marks)+' repère(s) à placer : entrée, intérieur, arrivée.';label=direct?'Choisir mon arrivée →':'Placer mes repères →';mapNextTarget='mapPanel2';}
  else if(!saved){title='2 · Garde ta préparation';hint='La zone et les repères sont prêts. Enregistre ta carte avant le départ.';label='Enregistrer ma préparation →';mapNextTarget='mapSave';}
  else if(!localized){title='3 · Prépare le départ';hint='Charge la carte enregistrée pour localiser le robot.';label='Charger ma carte →';mapNextTarget='mapPrepareRun';}
@@ -114,7 +119,7 @@ $('mapNav2Prepare').disabled=mapBusy||!!mapping.active||!mapping.available||!map
  else if(!localActive&&!mapping.nav2?.ready){title='3 · Prépare la navigation';hint='La carte est prête : démarre Nav2 sans mouvement, puis attends son état prêt.';label='Préparer Nav2 →';mapNextTarget='mapNav2Prepare';}
  else if(active){title='Le robot reste attentif';hint='Le LiDAR actualise les obstacles et le trajet. Le bouton rouge reste disponible.';label='Voir le STOP →';mapNextTarget='mapPanel3';}
  else{title='Tout est prêt pour l’essai';hint=(direct?'Le robot visera ton point d’arrivée. ':'Le robot suivra entrée → intérieur → arrivée. ')+(localActive?'Mode sans SLAM, repère odométrique.':'Mode SLAM, position corrigée.');label='Aller au départ →';mapNextTarget='mapRun';}
- $('mapNextTitle').textContent=title;$('mapNextHint').textContent=hint;$('mapNextButton').textContent=label;$('mapNextButton').disabled=mapBusy||(mapNextTarget==='connect'&&$('connect').disabled);
+ $('mapNextTitle').textContent=title;$('mapNextHint').textContent=hint;$('mapNextButton').textContent=label;$('mapNextButton').disabled=mapBusy||!!$(mapNextTarget)?.disabled;
  $('mapRun').textContent=direct?'Aller à mon arrivée avec moteurs →':'Lancer la mission 4 avec moteurs →';
  $('mapRunHint').textContent=ready?'Prêt : le prochain clic sur le bouton vert commande les moteurs.':active?'Navigation en cours. STOP arrête le robot.':'Avant le départ : mode actif, zone et arrivée définies, position valide et capteurs récents.';
 }
