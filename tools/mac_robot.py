@@ -5,7 +5,7 @@ ROOT=Path(__file__).resolve().parents[1]
 HOST=os.environ.get('URMC_HOST','192.168.42.211')
 SSH=['ssh','-o','ControlMaster=no','-o','ControlPath=none','-o','IPQoS=none','-o','ConnectTimeout=6','-o','ServerAliveInterval=5','-o','ServerAliveCountMax=2']
 TARGET='ubuntu@'+HOST
-REMOTE='urmc_essais_20261020'
+REMOTE='urmc'
 
 def remote(command,tty=False,**kwargs):
     return subprocess.run(SSH+(['-t'] if tty else [])+[TARGET,command],check=True,**kwargs)
@@ -46,15 +46,15 @@ print('Arret demande a',count,'mission(s).')
 def install():
     print('Transfert des sources puis compilation sur le robot. Aucun mouvement.',flush=True)
     with tempfile.TemporaryFile() as stream:
-        with tarfile.open(fileobj=stream,mode='w:gz',dereference=True) as archive:
+        with tarfile.open(fileobj=stream,mode='w:gz',dereference=False) as archive:
             def clean(info):
                 if '__pycache__' in info.name or info.name.endswith(('.pyc','.DS_Store')):return None
                 info.mtime=0
                 return info
-            for folder in ('src','kit_robot'):archive.add(ROOT/folder,arcname=folder,filter=clean)
+            for folder in ('Missions','src','kit_robot'):archive.add(ROOT/folder,arcname=folder,filter=clean)
         stream.seek(0)
         remote('mkdir -p "$HOME/'+REMOTE+'" && tar --no-same-owner -xzf - -C "$HOME/'+REMOTE+'"',stdin=stream)
-    build='set -e; source /opt/ros/humble/setup.bash; if [[ -f "$HOME/turtlebot3_ws/install/setup.bash" ]]; then source "$HOME/turtlebot3_ws/install/setup.bash"; fi; cd "$HOME/'+REMOTE+'"; colcon build --symlink-install --event-handlers console_direct+ status- --packages-select urmc_core urmc_mission_01 urmc_mission_02 urmc_mission_03 urmc_mission_04'
+    build='set -e; source /opt/ros/humble/setup.bash; if [[ -f "$HOME/turtlebot3_ws/install/setup.bash" ]]; then source "$HOME/turtlebot3_ws/install/setup.bash"; fi; cd "$HOME/'+REMOTE+'"; python3 kit_robot/ranger_robot.py; colcon build --base-paths src --symlink-install --event-handlers console_direct+ status- --packages-select urmc_core urmc_mission_01 urmc_mission_02 urmc_mission_03 urmc_mission_04'
     remote('bash -c '+shlex.quote(build),tty=True)
 
 def choose():

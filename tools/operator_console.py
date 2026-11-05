@@ -106,8 +106,8 @@ for _ in range(30):
   self.remote('python3 -c '+shlex.quote(cleanup),capture_output=True,timeout=10)
   self.stage('Transfert des programmes et des réglages…')
   with tempfile_archive() as stream:
-   self.remote('mkdir -p "$HOME/'+mac_robot.REMOTE+'/archives"; if [ -d "$HOME/'+mac_robot.REMOTE+'/kit_robot" ]; then tar -czf "$HOME/'+mac_robot.REMOTE+'/archives/avant_console.tar.gz" -C "$HOME/'+mac_robot.REMOTE+'" kit_robot src; fi; tar --no-same-owner -xzf - -C "$HOME/'+mac_robot.REMOTE+'"',stdin=stream,capture_output=True,timeout=90)
-  build='set -e; source /opt/ros/humble/setup.bash; if [[ -f "$HOME/turtlebot3_ws/install/setup.bash" ]]; then source "$HOME/turtlebot3_ws/install/setup.bash"; fi; cd "$HOME/'+mac_robot.REMOTE+'"; colcon build --symlink-install --packages-select urmc_core urmc_mission_01 urmc_mission_02 urmc_mission_03 urmc_mission_04'
+   self.remote('mkdir -p "$HOME/'+mac_robot.REMOTE+'/archives"; if [ -d "$HOME/'+mac_robot.REMOTE+'/kit_robot" ]; then tar -czf "$HOME/'+mac_robot.REMOTE+'/archives/avant_console.tar.gz" -C "$HOME/'+mac_robot.REMOTE+'" kit_robot src Missions; fi; tar --no-same-owner -xzf - -C "$HOME/'+mac_robot.REMOTE+'"',stdin=stream,capture_output=True,timeout=90)
+  build='set -e; source /opt/ros/humble/setup.bash; if [[ -f "$HOME/turtlebot3_ws/install/setup.bash" ]]; then source "$HOME/turtlebot3_ws/install/setup.bash"; fi; cd "$HOME/'+mac_robot.REMOTE+'"; python3 kit_robot/ranger_robot.py; colcon build --base-paths src --symlink-install --packages-select urmc_core urmc_mission_01 urmc_mission_02 urmc_mission_03 urmc_mission_04'
   self.stage('Compilation ROS 2 sur le robot…')
   completed=subprocess.run(mac_robot.SSH+['-o','BatchMode=yes',self.target,'bash -c '+shlex.quote(build)],capture_output=True,text=True,timeout=150)
   if completed.returncode:raise ValueError('Compilation échouée : '+completed.stderr[-1000:])
@@ -185,11 +185,11 @@ import tempfile
 @contextmanager
 def tempfile_archive():
  with tempfile.TemporaryFile() as stream:
-  with tarfile.open(fileobj=stream,mode='w:gz',dereference=True) as archive:
+  with tarfile.open(fileobj=stream,mode='w:gz',dereference=False) as archive:
    def clean(info):
     if '__pycache__' in info.name or info.name.endswith(('.pyc','.DS_Store')):return None
     info.mtime=0;return info
-   for name in ('src','kit_robot'):archive.add(ROOT/name,arcname=name,filter=clean)
+   for name in ('Missions','src','kit_robot'):archive.add(ROOT/name,arcname=name,filter=clean)
   stream.seek(0);yield stream
 
 
