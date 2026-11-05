@@ -100,4 +100,10 @@ Nav2 utilise NavFn A* et Regulated Pure Pursuit, avec carte globale SLAM et cart
 
 Les essais de roulage avec Nav2 sur le robot physique restent à faire avec l’opérateur ; une simulation réussie ne valide pas la compétition réelle.
 
-Déploiement sur robot 11 : dépendances Nav2 installées et cinq paquets compilés. Le contrôle à l’arrêt a identifié une panne de communication OpenCR : le pilote `turtlebot3_ros` est terminé, l’odométrie manque, tandis que les scans LiDAR restent récents. Nav2 n’est donc pas déclaré prêt sur matériel à ce stade. Vérifier l’alimentation de la base et relancer son pilote avant la validation matérielle. Aucun objectif moteur Nav2 n’a été envoyé au robot.
+Déploiement sur robot 11 : dépendances installées et cinq paquets compilés. Le pilote OpenCR avait perdu la communication et s’était terminé ; après relance du bringup, la communication et l’odométrie sont revenues. Le lancement Nav2 sans préfixe a été corrigé et couvert par un test supplémentaire. Les deux serveurs Nav2 sont désormais actifs sur le robot physique, sans objectif envoyé, navigation inactive et pose non confirmée.
+
+Contrôles à l’arrêt sur 10 secondes : caméra compressée décodable 320 × 240 (238 images), odométrie (169 messages), LiDAR 360° (42 scans), batterie 12,17 V. Transformations odom → base_footprint et base_footprint → base_scan valides. Aucune commande reçue sur /cmd_vel et aucun éditeur de commande moteur.
+
+**Réserve avant roulage :** contrôle LiDAR sur 20 scans : 87,8 à 89,4 % de distances valides, environ 40 valeurs nulles sur 360, notamment entre 30° et 80°. Le LiDAR est déclaré dégagé par l’opérateur. Ces valeurs ne permettent pas de conclure à une panne ; leur cause reste à caractériser. Le superviseur conserve son seuil de qualité de 90 % et bloque le départ. Ne pas confondre « serveurs Nav2 prêts » et « mission prête à rouler ».
+
+Les essais moteurs et l’évaluation sur piste restent à réaliser avec l’opérateur.

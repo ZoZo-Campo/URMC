@@ -11,6 +11,11 @@ def parameters(cfg,topic):
     result['controller_server']['ros__parameters']['FollowPath']=dict(plugin='nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController',desired_linear_vel=speed,lookahead_dist=.045,min_lookahead_dist=.04,max_lookahead_dist=.15,lookahead_time=1.,rotate_to_heading_angular_vel=.5,transform_tolerance=.2,use_velocity_scaled_lookahead_dist=False,min_approach_linear_velocity=min(.025,speed),approach_velocity_scaling_dist=.15,use_collision_detection=True,max_allowed_time_to_collision_up_to_carrot=.6,use_regulated_linear_velocity_scaling=True,use_cost_regulated_linear_velocity_scaling=True,cost_scaling_dist=.20,cost_scaling_gain=1.,inflation_cost_scaling_factor=10.,regulated_linear_scaling_min_radius=.2,regulated_linear_scaling_min_speed=min(.04,speed),use_rotate_to_heading=True,rotate_to_heading_min_angle=.15,max_angular_accel=1.,use_interpolation=True)
     return result
 
+def launch_command(launch,config,prefix):
+    args=['ros2','launch',str(launch),'params_file:='+str(config)]
+    if prefix:args.append('prefix:='+prefix)
+    return args
+
 class Nav2Bridge:
     def __init__(self,node):
         from lifecycle_msgs.srv import GetState
@@ -52,7 +57,7 @@ class Nav2Bridge:
         self.config=dict(cfg);self.error=None;self.states={}
         path=self.node.sessions/'nav2_active.yaml';path.write_text(yaml.safe_dump({self.node.prefix+"/urmc_nav2":parameters(cfg,self.node.topic)}))
         launch=Path(__file__).with_name('nav2_mission.launch.py')
-        args=['ros2','launch',str(launch),'params_file:='+str(path),'prefix:='+self.node.prefix]
+        args=launch_command(launch,path,self.node.prefix)
         with (self.node.sessions/'nav2.log').open('a') as log:self.process=subprocess.Popen(args,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
     def publish_map(self):
         if self.process is None or self.process.poll() is not None or self.node.grid is None:return
@@ -116,4 +121,4 @@ class Nav2Bridge:
                 self.last_plan=time.monotonic();self.pending=False;self.handle=None
         except Exception as e:self.error=str(e)
         self.cmd=(0.,0.);self.received=0.
-    def report(self):return dict(retries=self.retries,last_failure=self.last_failure,proposed=self.proposed,gate=self.last_gate,available=True,ready=self.ready(),running=self.process is not None and self.process.poll() is None,error=self.error,backend='Nav2',radius=self.config.get('m4_radius') if self.config else None,margin=self.config.get('m4_margin') if self.config else None)
+    def report(self):return dict(process_error='Nav2 arrêté : consulter session_robot11/nav2.log' if self.process is not None and self.process.poll() is not None else None,retries=self.retries,last_failure=self.last_failure,proposed=self.proposed,gate=self.last_gate,available=True,ready=self.ready(),running=self.process is not None and self.process.poll() is None,error=self.error,backend='Nav2',radius=self.config.get('m4_radius') if self.config else None,margin=self.config.get('m4_margin') if self.config else None)

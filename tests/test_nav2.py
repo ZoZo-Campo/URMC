@@ -37,3 +37,9 @@ def test_controller_abort_stops_and_retries_only_three_times():
   assert bridge.retries==number and bridge.cmd==(0.,0.) and bridge.received==0.
   assert bridge.handle is None and not bridge.pending
   assert bool(bridge.error)==(number==3)
+
+
+def test_robot_launch_omits_empty_prefix_argument():
+ from nav2_bridge import launch_command
+ assert launch_command('launch.py','params.yaml','')==['ros2','launch','launch.py','params_file:=params.yaml']
+ assert launch_command('launch.py','params.yaml','/sim')[-1]=='prefix:=/sim'
