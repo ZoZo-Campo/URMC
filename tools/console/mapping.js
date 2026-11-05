@@ -57,6 +57,12 @@ const pickHints={enclosure:'Clique sur le coin de référence, puis tire dans le
 document.querySelectorAll('[data-map-pick]').forEach(b=>b.onclick=()=>{if(b.disabled)return;mapRelease();$('mapClick').value=b.dataset.mapPick;$('mapClickHint').textContent=pickHints[b.dataset.mapPick];document.querySelectorAll('[data-map-pick]').forEach(x=>x.classList.toggle('chosen',x===b));notice(pickHints[b.dataset.mapPick]);mc.scrollIntoView({behavior:'auto',block:'center'});});
 $('mapNextButton').onclick=()=>{const target=$(mapNextTarget);if(!target)return;if(mapNextTarget.startsWith('mapPanel'))focusMapPanel(mapNextTarget.slice(-1));else if(mapNextTarget==='mapRun'){focusMapPanel(3);$('mapRun').focus({preventScroll:true});}else if(!target.disabled)target.click();};
 function renderMapGuide(){
+$('mapNav2State').textContent=mapping.mode==='local'?'Navigation locale sans SLAM':mapping.nav2?.ready?'Nav2 prêt · LiDAR actif · vitesse et marges dans Réglages':mapping.nav2?.running?'Nav2 en préparation…':'Nav2 à préparer après chargement de la carte';
+if(mapping.available&&!mapping.fresh&&mapping.mode!=='off')$('mapNav2State').textContent+=' · '+(mapping.sensor_reason||'Attente des capteurs');
+if(mapping.nav2?.ready&&mapping.active){const c=mapping.nav2.proposed||[0,0];$('mapNav2State').textContent+=' · demandée '+c[0].toFixed(2)+' m/s · envoyée '+(mapping.v||0).toFixed(2)+' m/s';}
+$('mapNav2Prepare').hidden=mapping.mode==='local';
+$('mapNav2Prepare').disabled=mapBusy||!!mapping.active||!mapping.available||!mapping.map;
+
  if(mapping.active){$('mapNavMode').value=mapping.navigation_mode==='local'?'local':'slam';if(['enclosure','goal'].includes(mapping.task))$('mapJourney').value=mapping.task;}
  const localChoice=$('mapNavMode').value==='local',localActive=mapping.mode==='local',direct=$('mapJourney').value==='goal';
  const matches=localChoice?localActive:!localActive,available=!!mapping.available,hasMap=!!mapping.map&&matches,zone=Array.isArray(mapping.zone)&&mapping.zone.length===4;
@@ -87,7 +93,7 @@ function renderMapGuide(){
  const selected=(mapping.maps||[]).find(m=>m.name===$('mapSaved').value);
  $('mapLoad').disabled||=!selected?.has_graph||active||localChoice;$('mapPrepareRun').disabled=$('mapLoad').disabled;
  $('mapSetPose').disabled||=!hasMap||mapping.mode!=='localization'||active;$('mapConfirm').disabled||=mapping.mode!=='localization'||!fresh||active;
- $('mapRun').disabled||=!ready;$('mapClose').disabled||=active;$('mapCameraAssist').disabled=!available||active||mapBusy;if(!mapBusy)$('mapCameraAssist').checked=!!camera.enabled;
+ $('mapRun').disabled||=!ready||(mapping.mode!=='local'&&!mapping.nav2?.ready);$('mapClose').disabled||=active;$('mapCameraAssist').disabled=!available||active||mapBusy;if(!mapBusy)$('mapCameraAssist').checked=!!camera.enabled;
  document.querySelectorAll('.map-picks button').forEach(b=>b.disabled=mapBusy||!available||!hasMap||active);
  document.querySelectorAll('[data-map-x]').forEach(b=>b.disabled=!available||!fresh||active||(!mapSimulation&&state.mode!=='manual'));
  $('mapRoute').textContent=keys.map(k=>{const p=mapping.route?.[k];return (p?'✓ ':'○ ')+({entry:'A · Entrée',inside:'B · Intérieur',exit:'C · Arrivée'}[k])+(p?' : '+p.map(v=>v.toFixed(2)).join(', '):' : à placer');}).join('\n');
@@ -125,3 +131,5 @@ function renderEnclosure(layout,local,active){
  $('mapLocation').textContent=mapping.enclosure_location==='outside'?'Hors du cadre indicatif':mapping.enclosure_location==='inside'?'Dans le cadre indicatif':mapping.enclosure_location==='boundary'?'Au bord du cadre indicatif':'Cadre indicatif non placé';
 }
 for(const id of ['mapEnclosureWidth','mapEnclosureDepth','mapEnclosureYaw'])$(id).oninput=()=>{enclosureDirty=true;renderMapGuide();$('mapEnclosureReadout').textContent='Brouillon indicatif : replacer le cadre pour enregistrer. Le départ reste possible.';};
+
+$('mapNav2Prepare').onclick=()=>mapButton(async()=>{const r=await mapAction('nav2_prepare');notice(r.message);});

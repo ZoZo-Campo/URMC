@@ -91,3 +91,13 @@ La page Missions distingue maintenant les objectifs du barème, les comportement
 - `tools/test_enclosure_slam.py` : graphe SLAM, entrée/sortie et cadre indicatif ; refuse un serveur non simulé.
 
 Les [documents officiels fournis](documents/) restent la référence. Les chemins techniques `01`, `02`, `03` correspondent aux missions officielles **0**, **1**, **2** et restent stables pour les robots.
+
+## Mission 4 — Nav2, 5 novembre 2026
+
+230 tests unitaires passent dans ROS 2 Humble, ainsi que les vérifications JavaScript et des chemins. Parcours réel ROS simulé validé : carte créée, graphe sauvegardé/rechargé, pose confirmée, entrée mesurée au LiDAR, obstacle ajouté après cartographie contourné, intérieur et sortie atteints puis arrêt. Le parcours complet sans SLAM reste validé, avec suppression d’obstacle et caméra sur activation.
+
+Nav2 utilise NavFn A* et Regulated Pure Pursuit, avec carte globale SLAM et carte locale LiDAR/odom distinctes. Les vitesses passent exclusivement par le superviseur de mission. Annulation et commandes tardives testées ; trois échecs de suivi maximum avant arrêt. Le simulateur publie maintenant aussi les vitesses odométriques.
+
+Les essais de roulage avec Nav2 sur le robot physique restent à faire avec l’opérateur ; une simulation réussie ne valide pas la compétition réelle.
+
+Déploiement sur robot 11 : dépendances Nav2 installées et cinq paquets compilés. Le contrôle à l’arrêt a identifié une panne de communication OpenCR : le pilote `turtlebot3_ros` est terminé, l’odométrie manque, tandis que les scans LiDAR restent récents. Nav2 n’est donc pas déclaré prêt sur matériel à ce stade. Vérifier l’alimentation de la base et relancer son pilote avant la validation matérielle. Aucun objectif moteur Nav2 n’a été envoyé au robot.

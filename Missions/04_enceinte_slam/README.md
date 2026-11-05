@@ -142,3 +142,19 @@ Ces vues proviennent du SLAM sur scans synthétiques du banc. Elles ne constitue
 Barème : 1 point : panneau d’entrée (détecteur visuel hors compétition, règle capteur et validation réelle à clarifier) ; 3 points : entrée ; 3 points : sortie ; bonus +3 avec obstacles. −1 si paroi touchée, −1 si chute d’obstacle.
 
 Les [PDF officiels fournis](../../docs/documents/) restent la référence.
+
+## Navigation Nav2 (ROS 2 Humble)
+
+Avec une carte SLAM, la mission utilise Nav2 (NavFn A* et contrôleur Regulated Pure Pursuit). Le superviseur conserve les étapes entrée → ouverture mesurée au LiDAR → intérieur → sortie, le délai de mission et l’arrêt final. Sans SLAM, la navigation locale précédente est conservée.
+
+Dans la console :
+1. Créer une carte, définir les repères et l’enregistrer.
+2. Charger la carte pour l’essai, indiquer puis confirmer la position du robot.
+3. Cliquer **Préparer Nav2 · sans mouvement**, attendre **Nav2 prêt**.
+4. Cliquer **Lancer la mission 4 avec moteurs**. STOP annule le trajet et coupe la sortie moteur.
+
+Les réglages de la mission 4 contrôlent la vitesse (0,10 m/s par défaut, plafond logiciel 0,15 m/s), le rayon physique (0,105 m), la marge (0,025 m) et la tolérance aux repères (0,07 m). Vérifier le rayon avec les dimensions réelles du robot et ses accessoires. Nav2 ajoute 3 cm de conservatisme lié aux cellules de la carte. La vitesse est réduite près des obstacles ; les limites et la collision sont contrôlées à chaque cycle. Après modification des réglages, arrêter puis cliquer de nouveau Préparer Nav2 pour actualiser sa configuration.
+
+Nav2 reçoit une carte mise à jour, les scans LiDAR et l’odométrie. Ses vitesses sortent sur un topic privé ; seul le superviseur peut publier vers les moteurs. Pas d’AMCL parallèle : SLAM Toolbox fournit déjà la localisation. Un échec de trajet provoque un arrêt explicite.
+
+Installation robot : `bash ~/urmc/kit_robot/installer_mission4.sh`. Journaux : `~/urmc/session_robot11/nav2.log`. Sources : `code/robot/nav2_bridge.py`, `code/robot/nav2_mission.launch.py`, `code/robot/mission_enceinte.py`.

@@ -161,7 +161,12 @@ Une cible confirmée peut arrêter dès l’approche. Après libération, le rob
 confirme le carrefour, traverse sans lignes et reprend les bordures proches.
 
 Mission 4 (6 points + 3 bonus, plus 1 point de panneau à clarifier)
-Préparer carte/vue locale, zone et A dehors / B dedans / C dehors → lancer.
+Préparer carte/vue locale, zone et A dehors / B dedans / C dehors.
+Avec SLAM : charger la carte, confirmer la position, cliquer Préparer Nav2,
+attendre Nav2 prêt, puis lancer avec moteurs.
+Sans SLAM : la navigation locale reste disponible, sans préparation Nav2.
+Vitesse, rayon et marge : Réglages → Enceinte / SLAM.
+Après changement : arrêter, puis cliquer Préparer Nav2 pour les appliquer.
 À A, arrêt et vérification de deux montants au LiDAR sur plusieurs scans.
 Passage trop étroit, incomplet ou occupé : attente, sans forcer.
 L’entrée mesurée, la largeur et la raison de pause apparaissent sur la carte.

@@ -30,7 +30,7 @@ class Arena(Node):
   if now-self.command_time>.25:self.v=self.w=0.
   self.x+=self.v*math.cos(self.yaw)*dt;self.y+=self.v*math.sin(self.yaw)*dt;self.yaw+=self.w*dt
   stamp=self.get_clock().now().to_msg();t=TransformStamped();t.header.stamp=stamp;t.header.frame_id='odom';t.child_frame_id='base_footprint';t.transform.translation.x=self.x;t.transform.translation.y=self.y;t.transform.rotation.z=math.sin(self.yaw/2);t.transform.rotation.w=math.cos(self.yaw/2);self.tf.sendTransform(t)
-  o=Odometry();o.header.stamp=stamp;o.header.frame_id='odom';o.child_frame_id='base_footprint';o.pose.pose.position.x=self.x;o.pose.pose.position.y=self.y;o.pose.pose.orientation=t.transform.rotation;self.odom.publish(o)
+  o=Odometry();o.header.stamp=stamp;o.header.frame_id='odom';o.child_frame_id='base_footprint';o.pose.pose.position.x=self.x;o.pose.pose.position.y=self.y;o.pose.pose.orientation=t.transform.rotation;o.twist.twist.linear.x=float(self.v);o.twist.twist.angular.z=float(self.w);self.odom.publish(o)
   walls=list(WALLS)
   if self.get_parameter('obstacles').value:walls +=[(.62,-.14,.85,-.14),(.62,.12,.85,.12),(.62,-.14,.62,.12),(.85,-.14,.85,.12)]
   m=LaserScan();m.header.stamp=stamp;m.header.frame_id='base_scan';m.angle_min=-math.pi;m.angle_increment=math.pi/360;m.angle_max=math.pi-m.angle_increment;m.range_min=.05;m.range_max=3.5

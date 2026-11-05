@@ -101,6 +101,8 @@ def test_full_enclosure_uses_measured_map_not_indicative_dimensions(actor,monkey
  actor.grid=Grid(np.zeros((100,120)),.04,(-1.,-2.,0.));actor.zone=[-.7,-1.,2.,1.];actor.map_id='m';actor.mode='localization';actor.confirmed=True
  actor.route=dict(entry=[-.18,0.],inside=[.7,0.],exit=[1.58,0.]);actor.pose=(-.4,0,0);actor.enclosure=layout
  monkeypatch.setattr(actor,'sensors',lambda:(True,'test'))
+ from types import SimpleNamespace
+ actor.nav2=SimpleNamespace(ready=lambda:True,cancel=lambda:None,publish_map=lambda:None,report=lambda:{'ready':True},process=None)
  actor.run_navigation('m')
  assert actor.active and actor.phase=='ENTRY'
 
@@ -133,6 +135,8 @@ def test_enclosure_waits_for_measured_jambs_before_committing_to_entry(actor,mon
  actor.route=dict(entry=[-.18,0.],inside=[.7,0.],exit=[1.58,0.]);actor.pose=(-.18,0,0)
  actor.raw_scan=LaserScan();actor.raw_scan.header.stamp.sec=1
  monkeypatch.setattr(actor,'sensors',lambda:(True,'test'))
+ from types import SimpleNamespace
+ actor.nav2=SimpleNamespace(ready=lambda:True,cancel=lambda:None,publish_map=lambda:None,report=lambda:{'ready':True},process=None)
  actor.run_navigation('m');actor.tick()
  assert actor.phase=='OPENING' and actor.v==0 and actor.entered is None
  # Empty scans or a map alone cannot claim that the two jambs were observed.

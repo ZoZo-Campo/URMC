@@ -57,6 +57,9 @@ class EnclosureNode(Node):
         self.pool=concurrent.futures.ThreadPoolExecutor(max_workers=1);self.commands=queue.Queue();self.action_lock=threading.Lock();self.snapshot_lock=threading.Lock();self.cached={};self.png_revision=-1;self.png=None
         self.started=None;self.entered=None;self.finished_at=None;self.v=self.w=0.;self.last_status=0.;self.last_snapshot=0.;self.job='';self.battery=None;self.seed_time=None
         self.manual_deadline=0.;self.manual_seq=-1;self.manual_expired=None;self.manual_hold=None
+        self.nav2=None;self.nav2_available=False
+        try:get_package_share_directory("nav2_controller");get_package_share_directory("nav2_planner");self.nav2_available=True
+        except Exception:pass
         self.slam_process=None;self.store=MapStore(self.root/'cartes');self.sessions=self.root/'session_robot11';self.sessions.mkdir(exist_ok=True)
         latest=QoSProfile(depth=1,reliability=ReliabilityPolicy.BEST_EFFORT);self.sensor_qos=latest
         map_qos=QoSProfile(depth=1,reliability=ReliabilityPolicy.RELIABLE,durability=DurabilityPolicy.TRANSIENT_LOCAL)
@@ -179,6 +182,7 @@ class EnclosureNode(Node):
             self.locks=[];raise ValueError('Un autre émetteur de vitesse est présent.')
         self.pub=self.create_publisher(Twist,self.topic('cmd_vel'),1)
     def stop_navigation(self,phase='STOP',reason='Arrêt demandé'):
+        if self.nav2 is not None:self.nav2.cancel()
         if self.active and self.entered is not None:self.finished_at=time.monotonic()
         if self.pub:
             for _ in range(3):self.pub.publish(Twist())
@@ -198,6 +202,7 @@ class EnclosureNode(Node):
             self.route=validate_route(self.route,self.navigation_grid,self.radius())
         else:validate_destination(self.route,self.navigation_grid,self.radius())
         if self.mode=='local' and any(math.hypot(*point)>3. for point in (self.route.values() if task=='enclosure' else [self.route['exit']])):raise ValueError('Sans SLAM, garder les objectifs à moins de 3 m de l’origine.')
+        if self.mode!='local' and (self.nav2 is None or not self.nav2.ready()):raise ValueError('Préparer Nav2 et attendre son état prêt avant de lancer la navigation.')
         self.task=task;self.plan_target=None;self.entrance=EntranceGate();self.entry_goal=None
         self.stop_navigation();self.acquire_motors();self.active=True;self.phase='GOAL' if task=='goal' else 'ENTRY';self.started=time.monotonic();self.entered=self.started if task=='goal' else None;self.finished_at=None;self.last_replan=0.;self.plan=None;self.epoch+=1;self.reason='Calcul du trajet vers l’arrivée' if task=='goal' else 'Calcul du trajet vers l’entrée'
         return {'success':True,'message':'Navigation vers le point d’arrivée démarrée.' if task=='goal' else 'Mission 4 démarrée : entrée → intérieur → sortie.'}
@@ -256,12 +261,15 @@ class EnclosureNode(Node):
             except Exception as e:box['error']=str(e)
             event.set()
         now=time.monotonic();fresh,self.sensor_reason=self.sensors();v=w=0.;cfg=current()
+        if self.nav2 is not None:self.nav2.publish_map()
         if self.pub and self.count_publishers(self.topic('cmd_vel'))!=1:self.stop_navigation('FAULT','Conflit de commande moteur')
         if self.slam_process is not None and self.slam_process.poll() is not None and self.mode!='off':
             self.stop_navigation('FAULT','SLAM arrêté : consulter cartographie_slam.log');self.mode='off';self.confirmed=False
         if self.active:
             if self.entered is not None and now-self.entered>=60:self.stop_navigation('TIMEOUT','Délai de 60 s écoulé depuis le départ' if self.task=='goal' else 'Délai de 60 s écoulé depuis l’entrée')
-            elif not fresh:self.reason=self.sensor_reason;self.path=[]
+            elif not fresh:
+                self.reason=self.sensor_reason;self.path=[]
+                if self.nav2 is not None:self.nav2.cancel()
             elif self.grid is None:self.reason='Carte absente'
             else:
                 if self.phase=='OPENING':
@@ -274,24 +282,39 @@ class EnclosureNode(Node):
                     if math.dist(self.pose[:2],target)<cfg['m4_goal_tolerance']:
                         if self.phase in ('EXIT','GOAL'):self.stop_navigation('DONE','Arrivée atteinte ; robot arrêté')
                         else:
-                            self.phase={'ENTRY':'OPENING','ENTER':'INSIDE','INSIDE':'EXIT'}[self.phase];self.plan_target=None;self.epoch+=1;self.path=[];self.plan=None;self.last_replan=0.
+                            self.phase={'ENTRY':'OPENING','ENTER':'INSIDE','INSIDE':'EXIT'}[self.phase]
+                            if self.nav2 is not None:self.nav2.cancel()
+                            self.plan_target=None;self.epoch+=1;self.path=[];self.plan=None;self.last_replan=0.
                 if self.active and self.phase!='OPENING':
-                    if self.plan is not None and self.plan.done():
-                        try:
-                            epoch,planned_at,(path,actual_goal)=self.plan.result()
-                            if epoch==self.epoch:self.path=path;self.plan_time=planned_at;self.plan_target=actual_goal
-                        except Exception:self.path=[]
-                        self.plan=None
-                    if self.plan is None and now-self.last_replan>.45:
-                        epoch=self.epoch;grid=bounded_grid(self.working_grid(),self.zone);self.navigation_grid=grid;pose=self.pose;points=list(self.world_points);radius=self.radius();target=self.entry_goal if self.phase=='ENTER' else self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit','GOAL':'exit'}[self.phase]]
-                        self.plan=self.pool.submit(lambda e,g,p,t,r,o,n,near,local:(e,n,plan_goal(g,p[:2],t,r,o,near,allow_start=local)),epoch,grid,pose,target,radius,points,now,self.phase=='INSIDE',self.mode=='local');self.last_replan=now
-                    if self.path and now-self.plan_time<1.2:
-                        v,w=path_command(self.pose,self.path,cfg['m4_speed']);self.reason='Trajet recalculé avec les obstacles LiDAR'
-                    else:self.reason='Recherche d’un passage connu et libre ; arrêt si aucun trajet'
+                    if self.mode!='local':
+                        target=self.entry_goal if self.phase=='ENTER' else self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit','GOAL':'exit'}[self.phase]]
+                        v,w=self.nav2.command(target);self.path=list(self.nav2.path)
+                        self.reason=self.nav2.last_failure or 'Nav2 : calcul et suivi du trajet avec le LiDAR'
+                        if self.nav2.error:self.stop_navigation('FAULT',self.nav2.error)
+                    else:
+                        if self.plan is not None and self.plan.done():
+                            try:
+                                epoch,planned_at,(path,actual_goal)=self.plan.result()
+                                if epoch==self.epoch:self.path=path;self.plan_time=planned_at;self.plan_target=actual_goal
+                            except Exception:self.path=[]
+                            self.plan=None
+                        if self.plan is None and now-self.last_replan>.45:
+                            epoch=self.epoch;grid=bounded_grid(self.working_grid(),self.zone);self.navigation_grid=grid;pose=self.pose;points=list(self.world_points);radius=self.radius();target=self.entry_goal if self.phase=='ENTER' else self.plan_target or self.route[{'ENTRY':'entry','INSIDE':'inside','EXIT':'exit','GOAL':'exit'}[self.phase]]
+                            self.plan=self.pool.submit(lambda e,g,p,t,r,o,n,near,local:(e,n,plan_goal(g,p[:2],t,r,o,near,allow_start=local)),epoch,grid,pose,target,radius,points,now,self.phase=='INSIDE',self.mode=='local');self.last_replan=now
+                        if self.path and now-self.plan_time<1.2:
+                            v,w=path_command(self.pose,self.path,cfg['m4_speed']);self.reason='Trajet recalculé avec les obstacles LiDAR'
+                        else:self.reason='Recherche d’un passage connu et libre ; arrêt si aucun trajet'
         elif self.phase=='MANUAL' and self.pub:
             if now>self.manual_deadline:self.manual_expired=self.manual_hold;self.stop_navigation('STOP','Maintien manuel expiré')
             elif fresh:v,w=self.v,self.w
         if self.pub:
+            cap=cfg['m4_speed']
+            if self.active and self.mode!='local' and self.local_points:
+                clearance=min(math.hypot(x,y) for x,y in self.local_points)-self.radius()
+                cap=min(cap,max(.02,2*max(0.,clearance)))
+            if self.active and self.mode!='local':
+                scale=min(1.,cap/max(abs(v),1e-9),.6/max(abs(w),1e-9));v*=scale;w*=scale
+            else:v=max(-cap,min(cap,v));w=max(-.6,min(.6,w))
             if self.camera_enabled and not self.camera_state()['allowed']:v=w=0.;self.reason='Pause assistance caméra : '+self.camera_state()['state']
             grid=self.navigation_grid if self.active else self.grid
             if self.mode=='local' and self.grid is not None:
@@ -309,12 +332,13 @@ class EnclosureNode(Node):
                     if swept_clear(self.pose,v*ratio,w,grid,self.radius(),self.local_points,horizon=.35):v*=ratio;safe=True;break
                 if not safe:v=w=0.
                 self.reason='Ralentissement / arrêt : marge autour de l’obstacle'
+            if self.active and self.mode!='local':self.nav2.last_gate=dict(v=v,w=w,reason=self.reason)
             self.v,self.w=v,w;msg=Twist();msg.linear.x=float(v);msg.angular.z=float(w);self.pub.publish(msg)
         if now-self.last_snapshot>.25:self.cache_snapshot(fresh);self.last_snapshot=now
         if now-self.last_status>.3:
             self.status.publish(String(data=json.dumps(self.summary())));self.last_status=now
     def summary(self):
-        return dict(available=True,simulation=self.simulation,slam_available=self.slam_share is not None,active=self.active,phase=self.phase,reason=self.reason,mode=self.mode,navigation_mode='local' if self.mode=='local' else 'slam',task=self.task,entrance=self.entrance.result,camera=self.camera_state(),map_id=self.map_id,selected=self.selected,confirmed=self.confirmed,v=self.v,w=self.w,job=self.job,robot_id=int(os.environ.get('URMC_ROBOT_ID','11')))
+        return dict(sensor_reason=self.sensor_reason,available=True,nav2_available=self.nav2_available,nav2=self.nav2.report() if self.nav2 else dict(available=self.nav2_available,ready=False,running=False),navigation_backend='local' if self.mode=='local' else 'Nav2',simulation=self.simulation,slam_available=self.slam_share is not None,active=self.active,phase=self.phase,reason=self.reason,mode=self.mode,navigation_mode='local' if self.mode=='local' else 'slam',task=self.task,entrance=self.entrance.result,camera=self.camera_state(),map_id=self.map_id,selected=self.selected,confirmed=self.confirmed,v=self.v,w=self.w,job=self.job,robot_id=int(os.environ.get('URMC_ROBOT_ID','11')))
     def cache_snapshot(self,fresh):
         data=self.summary();data.update(pose=self.pose,pose_age=max(0.,self.get_clock().now().nanoseconds/1e9-self.pose_stamp) if self.pose_stamp else None,
             scan_age=max(0.,time.monotonic()-self.scan_received) if self.scan_received else None,odom_age=max(0.,time.monotonic()-self.odom_received) if self.odom_received else None,
@@ -335,7 +359,7 @@ class EnclosureNode(Node):
         path=self.sessions/'slam_active.yaml';path.write_text(yaml.safe_dump(config));return path
     def start_slam(self,mode,data):
         self.ros(lambda:self.stop_navigation())
-        stop_process(self.slam_process);self.slam_process=None
+        self.close_nav2();stop_process(self.slam_process);self.slam_process=None
         for _ in range(20):
             if not self.count_publishers(self.topic('map')):break
             time.sleep(.1)
@@ -358,7 +382,7 @@ class EnclosureNode(Node):
         if self.slam_process.poll() is not None:raise ValueError('Démarrage SLAM échoué : consulter cartographie_slam.log')
         return {'success':True,'message':'SLAM démarré, attendre la carte et la localisation.'}
     def start_local(self):
-        self.ros(lambda:self.stop_navigation());stop_process(self.slam_process);self.slam_process=None
+        self.ros(lambda:self.stop_navigation());self.close_nav2();stop_process(self.slam_process);self.slam_process=None
         def reset():
             now=time.monotonic()
             if self.odom_pose is None or not 0<=now-self.odom_received<.3:raise ValueError('Attendre une odométrie récente avant d’activer la vue sans SLAM.')
@@ -396,6 +420,16 @@ class EnclosureNode(Node):
         with self.action_lock:
             action=data.get('action')
             if action=='stop':return self.ros(lambda:self.stop_navigation())
+            if action=='nav2_prepare':
+                self.ros(lambda:self.stop_navigation())
+                if self.mode=='local':raise ValueError('Nav2 utilise une carte SLAM. Le mode sans SLAM conserve sa navigation locale.')
+                if self.grid is None or self.mode not in ('mapping','localization'):raise ValueError('Créer ou charger une carte SLAM avant de préparer Nav2.')
+                if not self.nav2_available:raise ValueError('Installer Nav2 : bash ~/urmc/kit_robot/installer_mission4.sh')
+                if self.nav2 is None:
+                    from nav2_bridge import Nav2Bridge
+                    self.nav2=self.ros(lambda:Nav2Bridge(self))
+                if self.nav2.config is not None and self.nav2.config!=current():self.close_nav2()
+                self.nav2.start(current());return {'success':True,'message':'Nav2 démarre sans mouvement. Attendre l’état prêt.'}
             if action=='new':return self.start_slam('mapping',data)
             if action=='local':return self.start_local()
             if action=='camera':return self.ros(lambda:self.set_camera(data))
@@ -436,10 +470,14 @@ class EnclosureNode(Node):
                 if not event.wait(3) or not future.result() or not future.result().results[0].successful:raise ValueError('Perturbation non confirmée.')
                 self.destroy_client(client);return {'success':True}
             if action=='close':
-                self.ros(lambda:self.stop_navigation());stop_process(self.slam_process);self.slam_process=None;self.mode='off';self.confirmed=False;return {'success':True}
+                self.ros(lambda:self.stop_navigation());self.close_nav2();stop_process(self.slam_process);self.slam_process=None;self.mode='off';self.confirmed=False;return {'success':True}
             raise ValueError('Action cartographie inconnue.')
+    def close_nav2(self):
+        if self.nav2 is not None:
+            self.nav2.cancel()
+            stop_process(self.nav2.process);self.nav2.process=None
     def shutdown(self):
-        self.stop_navigation();stop_process(self.slam_process);self.pool.shutdown(wait=False,cancel_futures=True)
+        self.stop_navigation();self.close_nav2();stop_process(self.slam_process);self.pool.shutdown(wait=False,cancel_futures=True)
 
 def handler(node,token):
     class Handler(BaseHTTPRequestHandler):

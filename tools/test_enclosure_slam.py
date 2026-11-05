@@ -2,7 +2,7 @@
 Start a fresh bench then set URMC_MAP_TOKEN to its temporary server token.
 """
 import sys,json,time,urllib.request,zipfile,io,math,os
-URL='http://127.0.0.1:8894';TOKEN=os.environ['URMC_MAP_TOKEN']
+URL=os.environ.get('URMC_BENCH_URL','http://127.0.0.1:8894');assert URL in ('http://127.0.0.1:8894','http://127.0.0.1:8093');TOKEN=os.environ['URMC_MAP_TOKEN']
 def req(path,data=None):
  r=urllib.request.Request(URL+path,data=json.dumps(data).encode() if data is not None else None,headers={'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'})
  try:
@@ -45,6 +45,11 @@ for _ in range(30):
 mid=s['map_id'];action('pose',map_id=mid,pose=[-.4,0.,0.]);time.sleep(2.5);action('confirm',map_id=mid)
 # A deliberately misplaced indicative reference must never constrain the real path.
 action('enclosure',map_id=mid,enclosure=dict(width=2.,depth=2.5,origin=[10.,10.,0.]))
+action('nav2_prepare')
+for _ in range(90):
+ if snapshot().get('nav2',{}).get('ready'):break
+ time.sleep(.3)
+assert snapshot()['nav2']['ready'],snapshot().get('nav2')
 action('obstacles',enabled=True);time.sleep(.5);action('run',map_id=mid);start=time.monotonic();phases=[];detour=False
 while time.monotonic()-start<65:
  s=snapshot()

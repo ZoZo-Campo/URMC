@@ -1,5 +1,5 @@
 """Real ROS loop: no SLAM/map TF, chosen arrival, live obstacle and camera opt-in."""
-import sys,time,math
+import sys,time,math,tempfile
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'kit_robot'))
 import numpy as np,rclpy
@@ -12,7 +12,7 @@ from mission_enceinte import EnclosureNode
 
 def main():
     rclpy.init(args=['--ros-args','-r','/tf:=/urmc_test/navigation_modes/tf','-r','/tf_static:=/urmc_test/navigation_modes/tf_static'])
-    arena=Arena();actor=EnclosureNode(simulation=True);executor=SingleThreadedExecutor();executor.add_node(arena);executor.add_node(actor)
+    scratch=tempfile.TemporaryDirectory();arena=Arena();actor=EnclosureNode(root=scratch.name,simulation=True);executor=SingleThreadedExecutor();executor.add_node(arena);executor.add_node(actor)
     commands=[];arena.create_subscription(Twist,PREFIX+'/cmd_vel',lambda m:commands.append((m.linear.x,m.angular.z)),1)
     actor.ros=lambda fn,timeout=4:fn()
     def spin(seconds):
@@ -44,5 +44,5 @@ def main():
         actor.set_camera({'enabled':False});assert actor.camera_sub is None
         print('OK : sans SLAM ni TF map, arrivée cliquée conservée, obstacle ajouté contourné puis retiré de la vue, caméra uniquement sur activation, aucun moteur matériel.',flush=True)
     finally:
-        actor.shutdown();actor.destroy_node();arena.destroy_node();executor.shutdown();rclpy.shutdown()
+        actor.shutdown();actor.destroy_node();arena.destroy_node();executor.shutdown();rclpy.shutdown();scratch.cleanup()
 if __name__=='__main__':main()
