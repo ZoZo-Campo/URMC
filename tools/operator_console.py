@@ -146,7 +146,7 @@ for _ in range(30):
    else:raise ValueError('Action inconnue.')
    return {'success':True,'lease':self.demo_lease,'settings':self.demo_settings}
   if path in ('/start','/stop'):data=dict(data,generation=time.monotonic_ns())
-  return self.request(path,data,timeout=18 if path=='/mapping' else 3)
+  return self.request(path,data,timeout=50 if path=='/mapping' else 3)
  def start_sim(self,mission):
   if isinstance(mission,bool) or mission not in (1,2,3,4,5):raise ValueError('Mission de simulation invalide.')
   if self.job_lock.locked():raise ValueError('Une préparation est déjà en cours.')
@@ -327,7 +327,7 @@ def make_handler(backend,csrf):
      if path.endswith('/export'):
       req=urllib.request.Request(f'http://127.0.0.1:{robot.agent_port}/mapping/export?name='+urllib.parse.quote(query.get('name',[''])[0]),headers={'Authorization':'Bearer '+str(robot.robot_token)})
       with urllib.request.urlopen(req,timeout=6) as r:return self.respond(r.read(),'application/zip')
-     return self.respond(robot.request('/mapping',timeout=5))
+     return self.respond(robot.request('/mapping',timeout=45))
     except Exception as e:return self.respond({'error':str(e)},status=400)
    if path=='/api/lidar':
     import urllib.parse,math

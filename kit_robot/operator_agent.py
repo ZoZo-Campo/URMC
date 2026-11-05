@@ -163,8 +163,13 @@ def main():
    with (directory/'console_serveur.log').open('a') as log:subprocess.Popen([sys.executable,str(Path(__file__).resolve())],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
   print(token);return
  controller=Controller();server=ThreadingHTTPServer(('127.0.0.1',PORT),handler(controller,token))
- def shutdown(*_):controller.stop();threading.Thread(target=server.shutdown,daemon=True).start()
+ def shutdown(*_):
+  try:controller.stop()
+  except Exception as exc:print('Arrêt du superviseur : '+str(exc),file=sys.stderr,flush=True)
+  finally:threading.Thread(target=server.shutdown,daemon=True).start()
  for sig in (signal.SIGINT,signal.SIGTERM):signal.signal(sig,shutdown)
  try:server.serve_forever()
- finally:controller.stop();server.server_close()
+ finally:
+  try:controller.stop()
+  finally:server.server_close()
 if __name__=='__main__':main()

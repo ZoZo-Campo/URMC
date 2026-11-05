@@ -23,3 +23,9 @@ Installer SLAM : `bash ~/urmc/kit_robot/installer_mission4.sh`. Puis ouvrir Ence
 Suivi seul avec moteurs : `python3 ~/urmc/kit_robot/mission_barriere.py --run --ignore-barrier`.
 
 Pour compiler : `cd ~/urmc` puis, après chargement de ROS, `colcon build --base-paths src --symlink-install --packages-select urmc_core urmc_mission_01 urmc_mission_02 urmc_mission_03 urmc_mission_04`.
+
+## Validation sur le robot 11 — 5 novembre 2026
+
+SLAM Toolbox installé et contrôlé avec le LiDAR réel. Démarrage à froid depuis la console, carte obtenue (143 × 180 cellules, résolution 3 cm) et sauvegarde du graphe SLAM réussie, sans navigation ni déplacement commandé. La carte de validation est disponible sous `validation_installation_20261105_143357`.
+
+Le démarrage du module accepte jusqu’à 30 secondes ; les délais de l’interface sont alignés. Les requêtes simultanées partagent un seul démarrage. Le superviseur termine son arrêt même si le module cartographie ne répond plus.
