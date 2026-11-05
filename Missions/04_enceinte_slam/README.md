@@ -148,10 +148,13 @@ Les [PDF officiels fournis](../../docs/documents/) restent la référence.
 Avec une carte SLAM, la mission utilise Nav2 (NavFn A* et contrôleur Regulated Pure Pursuit). Le superviseur conserve les étapes entrée → ouverture mesurée au LiDAR → intérieur → sortie, le délai de mission et l’arrêt final. Sans SLAM, la navigation locale précédente est conservée.
 
 Dans la console :
-1. Créer une carte, définir les repères et l’enregistrer.
-2. Charger la carte pour l’essai, indiquer puis confirmer la position du robot.
-3. Cliquer **Préparer Nav2 · sans mouvement**, attendre **Nav2 prêt**.
-4. Cliquer **Lancer la mission 4 avec moteurs**. STOP annule le trajet et coupe la sortie moteur.
+1. Cliquer **Créer une nouvelle carte SLAM** : la construction démarre en direct.
+2. Cliquer **Conduire pour agrandir la carte**, puis maintenir les flèches pour explorer. Relâcher arrête le déplacement. Le LiDAR et l’odométrie assemblent les observations ; à l’arrêt le dessin peut rester identique.
+3. Cliquer **Enregistrer la carte explorée**. Cela conserve une version ; le SLAM reste actif si l’exploration continue. Enregistrer de nouveau après de nouveaux déplacements.
+4. Définir la zone et les repères du parcours, puis **Enregistrer ma carte et mon parcours** avant de la charger pour l’essai.
+5. Charger la carte pour l’essai, indiquer puis confirmer la position du robot.
+6. Cliquer **Préparer Nav2 · sans mouvement**, attendre **Nav2 prêt**.
+7. Cliquer **Lancer la mission 4 avec moteurs**. STOP annule le trajet et coupe la sortie moteur.
 
 Les réglages de la mission 4 contrôlent la vitesse (0,10 m/s par défaut, plafond logiciel 0,15 m/s), le rayon physique (0,105 m), la marge (0,025 m) et la tolérance aux repères (0,07 m). Vérifier le rayon avec les dimensions réelles du robot et ses accessoires. Nav2 ajoute 3 cm de conservatisme lié aux cellules de la carte. La vitesse est réduite près des obstacles ; les limites et la collision sont contrôlées à chaque cycle. Après modification des réglages, arrêter puis cliquer de nouveau Préparer Nav2 pour actualiser sa configuration.
 

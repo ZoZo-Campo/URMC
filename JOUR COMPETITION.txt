@@ -161,7 +161,9 @@ Une cible confirmée peut arrêter dès l’approche. Après libération, le rob
 confirme le carrefour, traverse sans lignes et reprend les bordures proches.
 
 Mission 4 (6 points + 3 bonus, plus 1 point de panneau à clarifier)
-Préparer carte/vue locale, zone et A dehors / B dedans / C dehors.
+Créer une carte SLAM → Conduire pour agrandir la carte → maintenir les flèches.
+Explorer, puis Enregistrer la carte explorée. Le SLAM reste actif pendant les déplacements.
+Préparer ensuite la zone et A dehors / B dedans / C dehors, puis enregistrer le parcours.
 Avec SLAM : charger la carte, confirmer la position, cliquer Préparer Nav2,
 attendre Nav2 prêt, puis lancer avec moteurs.
 Sans SLAM : la navigation locale reste disponible, sans préparation Nav2.

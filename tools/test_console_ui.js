@@ -62,4 +62,13 @@ const idle={robot_id:11,connected:true,mode:'idle',job:{},robots:{},settings:{},
  assert.equal(app.element('mapRun').disabled,false,'a misplaced or edited reference must not block navigation');
  app.run('mapping.fresh=false;renderMapGuide()');assert.equal(app.element('mapRun').disabled,true,'fresh LiDAR/position remain mandatory');
  console.log('PASS: optional dimensions and mandatory fresh sensors');
+ app.element('mapSource').value='robot';app.element('mapNavMode').value='slam';
+ app.run("mapSimulation=false;state.mode='idle';mapping={available:true,map_id:'live',mode:'mapping',navigation_mode:'slam',fresh:true,map:{},route:{}};renderMapGuide()");
+ assert.equal(app.run('mapNextTarget'),'mapManual','a first SLAM scan must lead to exploration, not route preparation');
+ app.run("state.mode='manual';renderMapGuide()");assert.equal(app.run('mapNextTarget'),'mapFinishMapping');
+ assert.equal(app.element('mapFinishMapping').disabled,false);
+ app.run("mapExploredSession='live';mapSavedSession='live';renderMapGuide()");assert.equal(app.run('mapNextTarget'),'mapPanel2');
+ app.run("mapping.zone=[-1,-1,3,3];mapping.route={entry:[0,0],inside:[1,0],exit:[2,0]};mapSavedSession=null;renderMapGuide()");
+ assert.equal(app.run('mapNextTarget'),'mapSave','route edits after exploration must be saved before loading the graph');
+ console.log('PASS: live mapping explores first and saves route edits before navigation');
 })().catch(e=>{console.error(e);process.exitCode=1;});
